@@ -1,0 +1,57 @@
+<UserControl x:Class="BDIT.TenantToolkit.App.Views.DeviationsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid Margin="24">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="*"/>
+      <ColumnDefinition Width="400"/>
+    </Grid.ColumnDefinitions>
+    <DockPanel Grid.Column="0" Margin="0,0,18,0">
+      <StackPanel DockPanel.Dock="Top">
+        <TextBlock Text="Deviation register" Style="{StaticResource H1}"/>
+        <TextBlock Style="{StaticResource Lead}" Text="A deviation is an approved departure from the BDIT standard for this client, not an ignored warning. Deviations never conceal failed collection or unknown data."/>
+        <TextBlock Text="{Binding StatusText}" FontWeight="SemiBold" Margin="0,0,0,10"/>
+      </StackPanel>
+      <DataGrid ItemsSource="{Binding Items}" SelectedItem="{Binding Selected, Mode=TwoWay}">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Control" Binding="{Binding ControlId}" Width="100"/>
+          <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="130"/>
+          <DataGridTextColumn Header="Reason" Binding="{Binding Reason}" Width="*"/>
+          <DataGridTextColumn Header="Approved by" Binding="{Binding ApprovedBy}" Width="150"/>
+          <DataGridTextColumn Header="Review by" Binding="{Binding ReviewBy}" Width="90"/>
+          <DataGridTextColumn Header="Recorded" Binding="{Binding RecordedAt}" Width="160"/>
+        </DataGrid.Columns>
+      </DataGrid>
+    </DockPanel>
+    <Border Grid.Column="1" Style="{StaticResource Panel}">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+          <TextBlock Text="Record or update a deviation" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,12"/>
+          <TextBlock Text="Control *" Style="{StaticResource Muted}"/>
+          <ComboBox ItemsSource="{Binding ControlIds}" SelectedItem="{Binding ControlId, Mode=TwoWay}" IsEditable="True" Text="{Binding ControlId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+          <TextBlock Text="Kind *" Style="{StaticResource Muted}"/>
+          <ComboBox ItemsSource="{Binding Kinds}" SelectedItem="{Binding Kind, Mode=TwoWay}"/>
+          <TextBlock Text="Reason * (why the client departs from the standard)" Style="{StaticResource Muted}"/>
+          <TextBox Text="{Binding Reason, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="70" TextWrapping="Wrap"/>
+          <TextBlock Text="Approved state (what is in place instead)" Style="{StaticResource Muted}"/>
+          <TextBox Text="{Binding ApprovedState, UpdateSourceTrigger=PropertyChanged}"/>
+          <TextBlock Text="Owner (client contact)" Style="{StaticResource Muted}"/>
+          <TextBox Text="{Binding Owner, UpdateSourceTrigger=PropertyChanged}"/>
+          <TextBlock Text="Approved by *" Style="{StaticResource Muted}"/>
+          <TextBox Text="{Binding ApprovedBy, UpdateSourceTrigger=PropertyChanged}"/>
+          <TextBlock Text="Review by (yyyy-MM-dd)" Style="{StaticResource Muted}"/>
+          <TextBox Text="{Binding ReviewBy, UpdateSourceTrigger=PropertyChanged}"/>
+          <TextBlock Text="Reference (ticket, document)" Style="{StaticResource Muted}"/>
+          <TextBox Text="{Binding Reference, UpdateSourceTrigger=PropertyChanged}"/>
+          <TextBlock Text="Notes" Style="{StaticResource Muted}"/>
+          <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="60" TextWrapping="Wrap"/>
+          <WrapPanel>
+            <Button Content="Save deviation" Command="{Binding SaveCommand}"/>
+            <Button Content="New" Command="{Binding NewCommand}" Style="{StaticResource SecondaryButton}"/>
+            <Button Content="Remove" Command="{Binding DeleteCommand}" Style="{StaticResource DangerButton}"/>
+          </WrapPanel>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+  </Grid>
+</UserControl>

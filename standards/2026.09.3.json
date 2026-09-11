@@ -1,0 +1,874 @@
+{
+  "schemaVersion": 3,
+  "release": "2026.09.3",
+  "status": "Release candidate - live tenant validation required",
+  "description": "BDIT Build Standard for Microsoft 365 Business Premium client tenants. Expected production state describes the finished tenant; safe deployment describes the only state the toolkit will create automatically.",
+  "publishedOn": "2026-09-11",
+  "owner": "Blue Diamond IT",
+  "collections": {
+    "conditionalAccess": { "api": "v1.0", "path": "/identity/conditionalAccess/policies", "scope": "Policy.Read.All", "write": "Policy.ReadWrite.ConditionalAccess", "label": "Conditional Access policies" },
+    "namedLocations": { "api": "v1.0", "path": "/identity/conditionalAccess/namedLocations", "scope": "Policy.Read.All", "label": "Named locations" },
+    "configuration": { "api": "v1.0", "path": "/deviceManagement/deviceConfigurations", "scope": "DeviceManagementConfiguration.Read.All", "write": "DeviceManagementConfiguration.ReadWrite.All", "assignments": true, "label": "Device configuration profiles" },
+    "settingsCatalogue": { "api": "beta", "path": "/deviceManagement/configurationPolicies", "scope": "DeviceManagementConfiguration.Read.All", "assignments": true, "children": "settings", "nameProperty": "name", "label": "Settings catalogue and endpoint security policies" },
+    "compliance": { "api": "v1.0", "path": "/deviceManagement/deviceCompliancePolicies", "scope": "DeviceManagementConfiguration.Read.All", "write": "DeviceManagementConfiguration.ReadWrite.All", "assignments": true, "relationship": "scheduledActionsForRule?$expand=scheduledActionConfigurations", "label": "Device compliance policies" },
+    "apps": { "api": "v1.0", "path": "/deviceAppManagement/mobileApps", "scope": "DeviceManagementApps.Read.All", "assignments": true, "label": "Applications" },
+    "appProtection": { "api": "v1.0", "path": "/deviceAppManagement/managedAppPolicies", "scope": "DeviceManagementApps.Read.All", "label": "App protection policies" },
+    "enrolment": { "api": "v1.0", "path": "/deviceManagement/deviceEnrollmentConfigurations", "scope": "DeviceManagementServiceConfig.Read.All", "assignments": true, "label": "Enrolment configurations" },
+    "autopilot": { "api": "beta", "path": "/deviceManagement/windowsAutopilotDeploymentProfiles", "scope": "DeviceManagementServiceConfig.Read.All", "assignments": true, "label": "Windows Autopilot profiles" },
+    "groups": { "api": "v1.0", "path": "/groups?$select=id,displayName,groupTypes,membershipRule,securityEnabled", "scope": "Group.Read.All", "label": "Groups" },
+    "users": { "api": "v1.0", "path": "/users?$select=id,displayName,userPrincipalName,userType,accountEnabled", "scope": "User.Read.All", "label": "Users" },
+    "authentication": { "api": "v1.0", "path": "/policies/authenticationMethodsPolicy", "scope": "Policy.Read.AuthenticationMethod", "singleton": true, "label": "Authentication methods policy" },
+    "licences": { "api": "v1.0", "path": "/subscribedSkus", "scope": "Organization.Read.All", "supportsQuery": false, "label": "Subscribed licences" }
+  },
+  "parameters": [
+    { "key": "emergencyAccountIds", "label": "Emergency access account object IDs", "type": "guidList", "required": true, "description": "Cloud-only break-glass accounts excluded from every Conditional Access policy. Required before any Conditional Access candidate is created." },
+    { "key": "officeLocationId", "label": "Office named location object ID", "type": "guid", "required": false, "description": "Named location representing trusted office egress addresses (LOC - BDIT Office). Used by controls that exclude the office." },
+    { "key": "mamGroupId", "label": "Approved MAM-only group object ID", "type": "guid", "required": false, "description": "Group of users approved to use app protection without device enrolment." },
+    { "key": "pilotGroupId", "label": "Pilot group object ID", "type": "guid", "required": false, "description": "Representative pilot population used during staged rollout; recorded for documentation." },
+    { "key": "caExclusionGroupId", "label": "Conditional Access exclusion group object ID", "type": "guid", "required": false, "description": "Optional group excluded from Conditional Access candidates in addition to the emergency accounts and the signed-in operator." }
+  ],
+  "controls": [
+    {
+      "id": "ID-001", "name": "Emergency access accounts", "category": "Identity", "severity": "Critical",
+      "purpose": "Guarantee administrative access if Conditional Access or MFA fails.",
+      "desiredState": "Two cloud-only emergency accounts with long, vaulted passwords; excluded from every Conditional Access policy; exclusion and recovery tests recorded.",
+      "businessImpact": "Without tested break-glass accounts a single misconfigured policy can lock every administrator out of the tenant.",
+      "engineerAction": "Confirm both accounts exist, are cloud-only, excluded from all Conditional Access policies and monitored for sign-in. Record the last recovery test date.",
+      "collection": "users",
+      "assessment": { "mode": "manual", "manualInstructions": "Locate the two emergency accounts in the Users list, confirm userType Member and cloud-only identity, and check every Conditional Access policy excludes their object IDs (recorded as emergencyAccountIds in the profile)." },
+      "expectedProduction": { "state": "Two accounts present and excluded", "assignment": "Excluded from all Conditional Access policies" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Never automated." },
+      "references": { "microsoft": "https://learn.microsoft.com/entra/identity/role-based-access-control/security-emergency-access", "cis": "CIS M365 1.1.4" }
+    },
+    {
+      "id": "ID-002", "name": "Authentication methods and Temporary Access Pass", "category": "Identity", "severity": "High",
+      "purpose": "Modern, phishing-resistant authentication methods with a controlled onboarding path.",
+      "desiredState": "Microsoft Authenticator (number matching) enabled; SMS and voice disabled for new registration; Temporary Access Pass enabled for approved setup with short lifetime and one-time use.",
+      "businessImpact": "Weak or legacy methods (SMS, voice) are routinely phished and SIM-swapped; an uncontrolled TAP policy allows persistent bypass.",
+      "engineerAction": "Review the authentication methods policy capture: Authenticator enabled with number matching, TAP enabled with a maximum lifetime of one hour and one-time use, SMS/voice disabled or restricted.",
+      "collection": "authentication",
+      "assessment": { "mode": "manual", "manualInstructions": "Open the captured authenticationMethodsPolicy. Check authenticationMethodConfigurations for microsoftAuthenticator (enabled, featureSettings), temporaryAccessPass (enabled, isUsableOnce, defaultLifetimeInMinutes) and sms/voice (disabled)." },
+      "expectedProduction": { "state": "Policy configured", "assignment": "All users" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Tenant-wide setting; changed manually after review." },
+      "references": { "microsoft": "https://learn.microsoft.com/entra/identity/authentication/concept-authentication-methods-manage" }
+    },
+    {
+      "id": "ID-003", "name": "Administrator access", "category": "Identity", "severity": "High",
+      "purpose": "Separate, least-privileged administrative identities with recorded ownership.",
+      "desiredState": "Dedicated admin accounts separate from daily-use identities; Global Administrator limited to the minimum; role assignments documented; BDIT access via agreed accounts.",
+      "businessImpact": "Shared or over-privileged administration multiplies the impact of a single compromised credential.",
+      "engineerAction": "Review role assignments (Global Administrator count, dedicated admin accounts, no mailbox-enabled admins). Record ownership in the client documentation.",
+      "collection": "users",
+      "assessment": { "mode": "manual", "manualInstructions": "Cross-reference the Users capture with the role assignments observed in the access check and the Entra admin centre. Confirm admin accounts are dedicated (no mailbox licence) and that Global Administrator is limited to two to four accounts including emergency access." },
+      "expectedProduction": { "state": "Documented least privilege", "assignment": "Dedicated admin accounts" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Never automated." },
+      "references": { "cis": "CIS M365 1.1.1" }
+    },
+    {
+      "id": "CA-001", "name": "Require MFA", "category": "Conditional Access", "severity": "Critical",
+      "purpose": "Require multifactor authentication for every user and administrator.",
+      "desiredState": "All users including administrators; emergency accounts and the office location excluded.",
+      "businessImpact": "Credential theft is the most common initial access vector. Without MFA a single phished password compromises the tenant.",
+      "engineerAction": "Deploy the disabled candidate, review targeting, switch to report-only, monitor sign-in logs for a week, then enable for all users after pilot validation.",
+      "licence": { "servicePlans": [ "AAD_PREMIUM" ], "note": "Entra ID P1 is included in Business Premium." },
+      "collection": "conditionalAccess",
+      "assessment": { "mode": "settings" },
+      "expectedProduction": { "state": "enabled", "assignment": "All users; emergency accounts and LOC - BDIT Office excluded" },
+      "safeDeployment": { "state": "disabled", "assignment": "Expected targeting written, policy disabled; emergency accounts, exclusion group and the signed-in operator excluded", "notes": "The toolkit never enables Conditional Access." },
+      "payload": {
+        "displayName": "BDIT - CA-001 - Require MFA",
+        "state": "disabled",
+        "conditions": {
+          "users": { "includeUsers": [ "All" ], "excludeUsers": "{{emergencyAccountIds}}" },
+          "applications": { "includeApplications": [ "All" ] },
+          "clientAppTypes": [ "all" ],
+          "locations": { "includeLocations": [ "All" ], "excludeLocations": [ "{{officeLocationId}}" ] }
+        },
+        "grantControls": { "operator": "OR", "builtInControls": [ "mfa" ] }
+      },
+      "equivalence": {
+        "note": "Any enabled policy requiring MFA (or an authentication strength) for all users and all cloud apps covers this control, whatever it is called. It does not prove the policy is free of exclusions, that the authentication strength is phishing-resistant, or that no other policy overrides it.",
+        "signals": [
+          { "key": "allUsers", "label": "Targets all users", "path": "conditions.users.includeUsers", "operator": "contains", "value": "All" },
+          { "key": "allApps", "label": "Targets all cloud apps", "path": "conditions.applications.includeApplications", "operator": "contains", "value": "All" },
+          { "key": "mfaControl", "label": "Requires multi-factor authentication", "path": "grantControls.builtInControls", "operator": "containsAny", "value": [ "mfa" ], "group": "mfa" },
+          { "key": "mfaStrength", "label": "Requires an authentication strength", "path": "grantControls.authenticationStrength", "operator": "present", "group": "mfa" }
+        ],
+        "caveats": [
+          { "key": "excludedUsers", "label": "Excludes named users", "path": "conditions.users.excludeUsers", "operator": "nonEmpty" },
+          { "key": "excludedGroups", "label": "Excludes groups", "path": "conditions.users.excludeGroups", "operator": "nonEmpty" },
+          { "key": "excludedApps", "label": "Excludes applications", "path": "conditions.applications.excludeApplications", "operator": "nonEmpty" },
+          { "key": "excludedLocations", "label": "Excludes locations, so MFA is not required from them", "path": "conditions.locations.excludeLocations", "operator": "nonEmpty" },
+          { "key": "narrowClients", "label": "Applies to some client app types only", "path": "conditions.clientAppTypes", "operator": "containsAny", "value": [ "browser", "mobileAppsAndDesktopClients", "exchangeActiveSync", "other" ] }
+        ]
+      },
+      "references": { "microsoft": "https://learn.microsoft.com/entra/identity/conditional-access/policy-all-users-mfa-strength", "cis": "CIS M365 5.2.2.1" }
+    },
+    {
+      "id": "CA-003", "name": "Block legacy authentication", "category": "Conditional Access", "severity": "Critical",
+      "purpose": "Block protocols that cannot satisfy MFA.",
+      "desiredState": "Block legacy authentication for all users; no office location bypass.",
+      "businessImpact": "Legacy protocols bypass MFA entirely and are the standard route for password-spray attacks.",
+      "engineerAction": "Deploy the disabled candidate, switch to report-only, investigate any legacy sign-ins reported, then enable.",
+      "licence": { "servicePlans": [ "AAD_PREMIUM" ] },
+      "collection": "conditionalAccess",
+      "assessment": { "mode": "settings" },
+      "expectedProduction": { "state": "enabled", "assignment": "All users; emergency accounts excluded" },
+      "safeDeployment": { "state": "disabled", "assignment": "Expected targeting written, policy disabled; emergency accounts and operator excluded" },
+      "payload": {
+        "displayName": "BDIT - CA-003 - Block legacy authentication",
+        "state": "disabled",
+        "conditions": {
+          "users": { "includeUsers": [ "All" ], "excludeUsers": "{{emergencyAccountIds}}" },
+          "applications": { "includeApplications": [ "All" ] },
+          "clientAppTypes": [ "exchangeActiveSync", "other" ]
+        },
+        "grantControls": { "operator": "OR", "builtInControls": [ "block" ] }
+      },
+      "equivalence": {
+        "note": "A policy that blocks access for the legacy client app types across all users covers this control. It does not prove the tenant has no other policy re-permitting those protocols, nor that Exchange Online has legacy auth disabled at the protocol level.",
+        "signals": [
+          { "key": "allUsers", "label": "Targets all users", "path": "conditions.users.includeUsers", "operator": "contains", "value": "All" },
+          { "key": "legacyClients", "label": "Targets legacy authentication clients", "path": "conditions.clientAppTypes", "operator": "containsAny", "value": [ "exchangeActiveSync", "other" ] },
+          { "key": "block", "label": "Blocks access", "path": "grantControls.builtInControls", "operator": "contains", "value": "block" }
+        ],
+        "caveats": [
+          { "key": "excludedUsers", "label": "Excludes named users", "path": "conditions.users.excludeUsers", "operator": "nonEmpty" },
+          { "key": "excludedGroups", "label": "Excludes groups", "path": "conditions.users.excludeGroups", "operator": "nonEmpty" },
+          { "key": "partialClients", "label": "Covers only one of the two legacy client app types", "path": "conditions.clientAppTypes", "operator": "atMost", "value": 1 },
+          { "key": "notAllApps", "label": "Does not target all cloud apps", "path": "conditions.applications.includeApplications", "operator": "absent" }
+        ]
+      },
+      "references": { "microsoft": "https://learn.microsoft.com/entra/identity/conditional-access/policy-block-legacy-authentication", "cis": "CIS M365 5.2.2.3" }
+    },
+    {
+      "id": "CA-004", "name": "Block unsupported platforms", "category": "Conditional Access", "severity": "High",
+      "purpose": "Only explicitly supported device platforms may access company data.",
+      "desiredState": "Block all platforms except Windows, macOS, iOS and Android; guests and emergency accounts excluded.",
+      "businessImpact": "Unsupported platforms (Linux, ChromeOS, unknown clients) cannot be managed or checked for compliance.",
+      "engineerAction": "Deploy the disabled candidate, review report-only results for unexpected platforms, then enable.",
+      "licence": { "servicePlans": [ "AAD_PREMIUM" ] },
+      "collection": "conditionalAccess",
+      "assessment": { "mode": "settings" },
+      "expectedProduction": { "state": "enabled", "assignment": "All users; guests and emergency accounts excluded" },
+      "safeDeployment": { "state": "disabled", "assignment": "Expected targeting written, policy disabled; emergency accounts, guests and operator excluded" },
+      "payload": {
+        "displayName": "BDIT - CA-004 - Block unsupported platforms",
+        "state": "disabled",
+        "conditions": {
+          "users": { "includeUsers": [ "All" ], "excludeUsers": "{{emergencyAndGuestIds}}" },
+          "applications": { "includeApplications": [ "All" ] },
+          "clientAppTypes": [ "all" ],
+          "platforms": { "includePlatforms": [ "all" ], "excludePlatforms": [ "android", "iOS", "windows", "windowsPhone", "macOS" ] }
+        },
+        "grantControls": { "operator": "OR", "builtInControls": [ "block" ] }
+      },
+      "equivalence": {
+        "note": "A policy that targets all platforms, exempts the supported ones and blocks the rest covers this control. The exempted set is not compared with the BDIT list, so confirm which platforms the client actually permits.",
+        "signals": [
+          { "key": "allUsers", "label": "Targets all users", "path": "conditions.users.includeUsers", "operator": "contains", "value": "All" },
+          { "key": "allPlatforms", "label": "Targets all device platforms", "path": "conditions.platforms.includePlatforms", "operator": "contains", "value": "all" },
+          { "key": "exemptsSupported", "label": "Exempts supported platforms", "path": "conditions.platforms.excludePlatforms", "operator": "nonEmpty" },
+          { "key": "block", "label": "Blocks access", "path": "grantControls.builtInControls", "operator": "contains", "value": "block" }
+        ],
+        "caveats": [
+          { "key": "excludedUsers", "label": "Excludes named users", "path": "conditions.users.excludeUsers", "operator": "nonEmpty" },
+          { "key": "exemptsMany", "label": "Exempts more platforms than the standard allows for", "path": "conditions.platforms.excludePlatforms", "operator": "atLeast", "value": 6 }
+        ]
+      }
+    },
+    {
+      "id": "CA-005", "name": "Require compliant desktop devices", "category": "Conditional Access", "severity": "High",
+      "purpose": "Windows and macOS access requires an Intune-compliant device.",
+      "desiredState": "Windows and macOS; compliant device required; emergency accounts, guests and the office location excluded.",
+      "businessImpact": "Unmanaged desktops cannot be verified for encryption, patching or malware protection before reaching company data.",
+      "engineerAction": "Deploy CMP-WIN-001 first and confirm pilot devices report compliant. Deploy the disabled candidate, switch to report-only, then enable after validation.",
+      "licence": { "servicePlans": [ "AAD_PREMIUM", "INTUNE_A" ] },
+      "dependencies": [ "CMP-WIN-001" ],
+      "collection": "conditionalAccess",
+      "assessment": { "mode": "settings" },
+      "expectedProduction": { "state": "enabled", "assignment": "All users on Windows and macOS; emergency accounts, guests and office excluded" },
+      "safeDeployment": { "state": "disabled", "assignment": "Expected targeting written, policy disabled; emergency accounts, guests and operator excluded" },
+      "payload": {
+        "displayName": "BDIT - CA-005 - Require compliant desktop devices",
+        "state": "disabled",
+        "conditions": {
+          "users": { "includeUsers": [ "All" ], "excludeUsers": "{{emergencyAndGuestIds}}" },
+          "applications": { "includeApplications": [ "All" ] },
+          "clientAppTypes": [ "all" ],
+          "locations": { "includeLocations": [ "All" ], "excludeLocations": [ "{{officeLocationId}}" ] },
+          "platforms": { "includePlatforms": [ "windows", "macOS" ] }
+        },
+        "grantControls": { "operator": "OR", "builtInControls": [ "compliantDevice" ] }
+      },
+      "equivalence": {
+        "note": "A policy requiring a compliant or hybrid-joined device for desktop platforms covers this control. Hybrid join is accepted as an equivalent device-trust route; if the client uses it, confirm that is intended for this tenant. This does not prove a compliance policy is assigned, so review CMP-WIN-001 alongside it.",
+        "signals": [
+          { "key": "allUsers", "label": "Targets all users", "path": "conditions.users.includeUsers", "operator": "contains", "value": "All" },
+          { "key": "desktopPlatforms", "label": "Targets Windows or macOS", "path": "conditions.platforms.includePlatforms", "operator": "containsAny", "value": [ "windows", "macOS" ] },
+          { "key": "compliantDevice", "label": "Requires a compliant device", "path": "grantControls.builtInControls", "operator": "contains", "value": "compliantDevice", "group": "deviceTrust" },
+          { "key": "hybridJoined", "label": "Requires a hybrid Entra joined device", "path": "grantControls.builtInControls", "operator": "contains", "value": "domainJoinedDevice", "group": "deviceTrust" }
+        ],
+        "caveats": [
+          { "key": "excludedUsers", "label": "Excludes named users", "path": "conditions.users.excludeUsers", "operator": "nonEmpty" },
+          { "key": "excludedGroups", "label": "Excludes groups", "path": "conditions.users.excludeGroups", "operator": "nonEmpty" },
+          { "key": "excludedLocations", "label": "Excludes locations, so unmanaged desktops are permitted from them", "path": "conditions.locations.excludeLocations", "operator": "nonEmpty" },
+          { "key": "orOperator", "label": "Grant controls are combined with OR, so another control can satisfy the policy instead", "path": "grantControls.operator", "operator": "equals", "value": "OR" }
+        ]
+      },
+      "references": { "microsoft": "https://learn.microsoft.com/entra/identity/conditional-access/policy-compliant-device" }
+    },
+    {
+      "id": "CA-006", "name": "Require compliant mobile devices", "category": "Conditional Access", "severity": "High",
+      "purpose": "iOS and Android access requires an enrolled, compliant device unless the user is approved for MAM-only access.",
+      "desiredState": "Mobile users require compliant devices; approved MAM-only group and office location excluded.",
+      "businessImpact": "Personal, unmanaged phones are a common route for data leakage and account takeover.",
+      "engineerAction": "Confirm the MAM-only group is populated deliberately. Deploy the disabled candidate, review report-only impact, then enable.",
+      "licence": { "servicePlans": [ "AAD_PREMIUM", "INTUNE_A" ] },
+      "dependencies": [ "CMP-IOS-001" ],
+      "collection": "conditionalAccess",
+      "assessment": { "mode": "settings" },
+      "expectedProduction": { "state": "enabled", "assignment": "All users on iOS and Android; MAM-only group, emergency accounts, guests and office excluded" },
+      "safeDeployment": { "state": "disabled", "assignment": "Expected targeting written, policy disabled; exclusions and operator excluded" },
+      "payload": {
+        "displayName": "BDIT - CA-006 - Require compliant mobile devices",
+        "state": "disabled",
+        "conditions": {
+          "users": { "includeUsers": [ "All" ], "excludeUsers": "{{emergencyAndGuestIds}}", "excludeGroups": [ "{{mamGroupId}}" ] },
+          "applications": { "includeApplications": [ "All" ] },
+          "clientAppTypes": [ "all" ],
+          "locations": { "includeLocations": [ "All" ], "excludeLocations": [ "{{officeLocationId}}" ] },
+          "platforms": { "includePlatforms": [ "iOS", "android" ] }
+        },
+        "grantControls": { "operator": "OR", "builtInControls": [ "compliantDevice" ] }
+      },
+      "equivalence": {
+        "note": "A policy requiring a compliant device for iOS or Android covers this control. A MAM-only exclusion group is expected in the BDIT design, so its presence is a caveat to confirm rather than a failure; check CA-008 covers company-owned devices in that group.",
+        "signals": [
+          { "key": "allUsers", "label": "Targets all users", "path": "conditions.users.includeUsers", "operator": "contains", "value": "All" },
+          { "key": "mobilePlatforms", "label": "Targets iOS or Android", "path": "conditions.platforms.includePlatforms", "operator": "containsAny", "value": [ "iOS", "android" ] },
+          { "key": "compliantDevice", "label": "Requires a compliant device", "path": "grantControls.builtInControls", "operator": "contains", "value": "compliantDevice" }
+        ],
+        "caveats": [
+          { "key": "excludedGroups", "label": "Excludes groups (expected for MAM-only users; confirm the membership is deliberate)", "path": "conditions.users.excludeGroups", "operator": "nonEmpty" },
+          { "key": "excludedUsers", "label": "Excludes named users", "path": "conditions.users.excludeUsers", "operator": "nonEmpty" },
+          { "key": "excludedLocations", "label": "Excludes locations, so unmanaged phones are permitted from them", "path": "conditions.locations.excludeLocations", "operator": "nonEmpty" }
+        ]
+      }
+    },
+    {
+      "id": "CA-007", "name": "Require mobile app protection", "category": "Conditional Access", "severity": "High",
+      "purpose": "Office 365 access from mobile apps requires an app protection policy.",
+      "desiredState": "Supported mobile access requires app protection; no office location bypass.",
+      "businessImpact": "Without app protection, company data can be copied from mobile apps into personal storage.",
+      "engineerAction": "Deploy MAM-IOS-001 and MAM-AND-001 first. Deploy the disabled candidate, review report-only impact, then enable.",
+      "licence": { "servicePlans": [ "AAD_PREMIUM", "INTUNE_A" ] },
+      "collection": "conditionalAccess",
+      "assessment": { "mode": "settings" },
+      "expectedProduction": { "state": "enabled", "assignment": "All users on iOS and Android for Office 365; emergency accounts and guests excluded" },
+      "safeDeployment": { "state": "disabled", "assignment": "Expected targeting written, policy disabled; exclusions and operator excluded" },
+      "payload": {
+        "displayName": "BDIT - CA-007 - Require mobile app protection",
+        "state": "disabled",
+        "conditions": {
+          "users": { "includeUsers": [ "All" ], "excludeUsers": "{{emergencyAndGuestIds}}" },
+          "applications": { "includeApplications": [ "Office365" ] },
+          "clientAppTypes": [ "browser", "mobileAppsAndDesktopClients" ],
+          "platforms": { "includePlatforms": [ "iOS", "android" ] }
+        },
+        "grantControls": { "operator": "OR", "builtInControls": [ "compliantApplication" ] }
+      },
+      "equivalence": {
+        "note": "A policy requiring an app protection policy, or an approved client app, for mobile access covers this control. Approved-client-app is accepted because many tenants still use it, but Microsoft has retired that control: if it is the only route, flag it for migration. This does not prove an app protection policy is actually assigned - see MAM-IOS-001 and MAM-AND-001.",
+        "signals": [
+          { "key": "allUsers", "label": "Targets all users", "path": "conditions.users.includeUsers", "operator": "contains", "value": "All" },
+          { "key": "mobilePlatforms", "label": "Targets iOS or Android", "path": "conditions.platforms.includePlatforms", "operator": "containsAny", "value": [ "iOS", "android" ] },
+          { "key": "appProtection", "label": "Requires app protection policy", "path": "grantControls.builtInControls", "operator": "contains", "value": "compliantApplication", "group": "appControl" },
+          { "key": "approvedApp", "label": "Requires an approved client app (retired control)", "path": "grantControls.builtInControls", "operator": "contains", "value": "approvedApplication", "group": "appControl" }
+        ],
+        "caveats": [
+          { "key": "retiredControl", "label": "Relies on the retired approved-client-app control; plan migration to app protection", "path": "grantControls.builtInControls", "operator": "contains", "value": "approvedApplication" },
+          { "key": "excludedUsers", "label": "Excludes named users", "path": "conditions.users.excludeUsers", "operator": "nonEmpty" },
+          { "key": "excludedGroups", "label": "Excludes groups", "path": "conditions.users.excludeGroups", "operator": "nonEmpty" }
+        ]
+      },
+      "references": { "microsoft": "https://learn.microsoft.com/entra/identity/conditional-access/policy-all-users-approved-app-or-app-protection" }
+    },
+    {
+      "id": "CA-008", "name": "Corporate mobile compliance", "category": "Conditional Access", "severity": "Medium",
+      "purpose": "Prevent the MAM-only exception from bypassing compliance on company-owned mobile devices.",
+      "desiredState": "MAM-only group members using company-owned iOS/Android devices still require compliance.",
+      "businessImpact": "Without this policy the MAM-only exception becomes a blanket bypass for corporate phones.",
+      "engineerAction": "Deploy the disabled candidate after CA-006; validate the device ownership filter with a corporate device before enabling.",
+      "licence": { "servicePlans": [ "AAD_PREMIUM", "INTUNE_A" ] },
+      "dependencies": [ "CA-006" ],
+      "collection": "conditionalAccess",
+      "assessment": { "mode": "settings" },
+      "expectedProduction": { "state": "enabled", "assignment": "MAM-only group; company-owned device filter; emergency accounts and office excluded" },
+      "safeDeployment": { "state": "disabled", "assignment": "Expected targeting written, policy disabled; exclusions and operator excluded" },
+      "payload": {
+        "displayName": "BDIT - CA-008 - Corporate mobile compliance",
+        "state": "disabled",
+        "conditions": {
+          "users": { "includeGroups": [ "{{mamGroupId}}" ], "excludeUsers": "{{emergencyAccountIds}}" },
+          "applications": { "includeApplications": [ "All" ] },
+          "clientAppTypes": [ "all" ],
+          "locations": { "includeLocations": [ "All" ], "excludeLocations": [ "{{officeLocationId}}" ] },
+          "platforms": { "includePlatforms": [ "iOS", "android" ] },
+          "devices": { "deviceFilter": { "mode": "include", "rule": "device.deviceOwnership -eq \"Company\"" } }
+        },
+        "grantControls": { "operator": "OR", "builtInControls": [ "compliantDevice" ] }
+      },
+      "equivalence": {
+        "note": "A policy that targets the MAM-only population on mobile with a device filter and requires compliance covers this control. The filter rule text is shown but not interpreted - read it and confirm it selects company-owned devices, because a filter written the other way round would invert the intent.",
+        "signals": [
+          { "key": "groupTargeted", "label": "Targets a group rather than all users", "path": "conditions.users.includeGroups", "operator": "nonEmpty" },
+          { "key": "mobilePlatforms", "label": "Targets iOS or Android", "path": "conditions.platforms.includePlatforms", "operator": "containsAny", "value": [ "iOS", "android" ] },
+          { "key": "deviceFilter", "label": "Applies a device filter", "path": "conditions.devices.deviceFilter.rule", "operator": "present" },
+          { "key": "compliantDevice", "label": "Requires a compliant device", "path": "grantControls.builtInControls", "operator": "contains", "value": "compliantDevice" }
+        ],
+        "caveats": [
+          { "key": "filterMode", "label": "Device filter mode - confirm include/exclude matches the intent", "path": "conditions.devices.deviceFilter.mode", "operator": "present" },
+          { "key": "filterRule", "label": "Device filter rule to read in full", "path": "conditions.devices.deviceFilter.rule", "operator": "present" }
+        ]
+      }
+    },
+    {
+      "id": "CA-009", "name": "Secure security-info registration", "category": "Conditional Access", "severity": "High",
+      "purpose": "Protect registration of MFA methods so an attacker with a password cannot enrol their own device.",
+      "desiredState": "Registering security information requires MFA except from the office location; emergency accounts excluded.",
+      "businessImpact": "Unprotected registration lets an attacker who has a password add their own authenticator and defeat MFA permanently.",
+      "engineerAction": "Deploy the disabled candidate. Note that report-only does not evaluate user-action policies; validate with a pilot user before enabling.",
+      "licence": { "servicePlans": [ "AAD_PREMIUM" ] },
+      "collection": "conditionalAccess",
+      "assessment": { "mode": "settings" },
+      "expectedProduction": { "state": "enabled", "assignment": "All users; user action register security info; emergency accounts and office excluded" },
+      "safeDeployment": { "state": "disabled", "assignment": "Expected targeting written, policy disabled; exclusions and operator excluded" },
+      "payload": {
+        "displayName": "BDIT - CA-009 - Secure security-info registration",
+        "state": "disabled",
+        "conditions": {
+          "users": { "includeUsers": [ "All" ], "excludeUsers": "{{emergencyAccountIds}}" },
+          "applications": { "includeUserActions": [ "urn:user:registersecurityinfo" ] },
+          "clientAppTypes": [ "all" ],
+          "locations": { "includeLocations": [ "All" ], "excludeLocations": [ "{{officeLocationId}}" ] }
+        },
+        "grantControls": { "operator": "OR", "builtInControls": [ "mfa" ] }
+      },
+      "equivalence": {
+        "note": "A policy on the register-security-information user action that requires MFA covers this control. Report-only does not evaluate user-action policies, so a client may have this configured yet never validated; confirm with a pilot user.",
+        "signals": [
+          { "key": "allUsers", "label": "Targets all users", "path": "conditions.users.includeUsers", "operator": "contains", "value": "All" },
+          { "key": "userAction", "label": "Targets the security-information registration user action", "path": "conditions.applications.includeUserActions", "operator": "contains", "value": "urn:user:registersecurityinfo" },
+          { "key": "mfaControl", "label": "Requires multi-factor authentication", "path": "grantControls.builtInControls", "operator": "containsAny", "value": [ "mfa" ], "group": "mfa" },
+          { "key": "mfaStrength", "label": "Requires an authentication strength", "path": "grantControls.authenticationStrength", "operator": "present", "group": "mfa" }
+        ],
+        "caveats": [
+          { "key": "excludedUsers", "label": "Excludes named users", "path": "conditions.users.excludeUsers", "operator": "nonEmpty" },
+          { "key": "excludedLocations", "label": "Excludes locations, so registration is unprotected from them", "path": "conditions.locations.excludeLocations", "operator": "nonEmpty" }
+        ]
+      },
+      "references": { "microsoft": "https://learn.microsoft.com/entra/identity/conditional-access/policy-all-users-security-info-registration" }
+    },
+    {
+      "id": "CA-010", "name": "Secure device registration", "category": "Conditional Access", "severity": "Medium",
+      "purpose": "Protect device registration and join with MFA.",
+      "desiredState": "Registering or joining devices requires MFA except from the office; test TAP and Autopilot enrolment before enabling.",
+      "businessImpact": "Unprotected device registration allows rogue devices to gain trusted status.",
+      "engineerAction": "Deploy the disabled candidate; validate Autopilot and TAP flows with a pilot device before enabling.",
+      "licence": { "servicePlans": [ "AAD_PREMIUM" ] },
+      "collection": "conditionalAccess",
+      "assessment": { "mode": "settings" },
+      "expectedProduction": { "state": "enabled", "assignment": "All users; user action register device; emergency accounts, guests and office excluded" },
+      "safeDeployment": { "state": "disabled", "assignment": "Expected targeting written, policy disabled; exclusions and operator excluded" },
+      "payload": {
+        "displayName": "BDIT - CA-010 - Secure device registration",
+        "state": "disabled",
+        "conditions": {
+          "users": { "includeUsers": [ "All" ], "excludeUsers": "{{emergencyAndGuestIds}}" },
+          "applications": { "includeUserActions": [ "urn:user:registerdevice" ] },
+          "clientAppTypes": [ "all" ],
+          "locations": { "includeLocations": [ "All" ], "excludeLocations": [ "{{officeLocationId}}" ] }
+        },
+        "grantControls": { "operator": "OR", "builtInControls": [ "mfa" ] }
+      },
+      "equivalence": {
+        "note": "A policy on the register-device user action that requires MFA covers this control. It cannot show whether Autopilot or Temporary Access Pass enrolment still works under it, which is the usual reason this policy is later disabled.",
+        "signals": [
+          { "key": "allUsers", "label": "Targets all users", "path": "conditions.users.includeUsers", "operator": "contains", "value": "All" },
+          { "key": "userAction", "label": "Targets the device registration user action", "path": "conditions.applications.includeUserActions", "operator": "contains", "value": "urn:user:registerdevice" },
+          { "key": "mfaControl", "label": "Requires multi-factor authentication", "path": "grantControls.builtInControls", "operator": "containsAny", "value": [ "mfa" ], "group": "mfa" },
+          { "key": "mfaStrength", "label": "Requires an authentication strength", "path": "grantControls.authenticationStrength", "operator": "present", "group": "mfa" }
+        ],
+        "caveats": [
+          { "key": "excludedUsers", "label": "Excludes named users", "path": "conditions.users.excludeUsers", "operator": "nonEmpty" },
+          { "key": "excludedLocations", "label": "Excludes locations, so device registration is unprotected from them", "path": "conditions.locations.excludeLocations", "operator": "nonEmpty" }
+        ]
+      }
+    },
+    {
+      "id": "ENR-001", "name": "Automatic MDM enrolment", "category": "Enrolment", "severity": "High",
+      "purpose": "Devices joining Entra ID enrol into Intune automatically.",
+      "desiredState": "MDM user scope All for eligible licensed users; Entra joined device model.",
+      "businessImpact": "Without automatic enrolment devices join without management, compliance or protection.",
+      "engineerAction": "Confirm the MDM user scope is All (or the licensed group) in the Intune enrolment settings.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "enrolment",
+      "assessment": { "mode": "manual", "manualInstructions": "Review the enrolment configurations capture and the Mobility (MDM and WIP) settings in the Entra admin centre. MDM user scope must include all licensed users." },
+      "expectedProduction": { "state": "Configured", "assignment": "All licensed users" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Tenant setting; changed manually." }
+    },
+    {
+      "id": "ENR-002", "name": "Enrolment restrictions", "category": "Enrolment", "severity": "Medium",
+      "purpose": "Only supported platforms and enrolment methods are allowed.",
+      "desiredState": "Block macOS enrolment; allow supported Windows, iOS/iPadOS and Android methods; personally owned Windows blocked.",
+      "businessImpact": "Unrestricted enrolment lets unsupported or personal devices become 'managed' without meeting the standard.",
+      "engineerAction": "Review the device type and device limit restrictions in the enrolment capture.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "enrolment",
+      "assessment": { "mode": "manual", "manualInstructions": "In the enrolment configurations capture, find deviceEnrollmentPlatformRestrictionsConfiguration objects and check platformBlocked / personalDeviceEnrollmentBlocked per platform." },
+      "expectedProduction": { "state": "Configured", "assignment": "All users" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Changed manually after review." }
+    },
+    {
+      "id": "ENR-003", "name": "Windows Autopilot profile", "category": "Enrolment", "severity": "Medium",
+      "purpose": "Standardised, user-driven Windows provisioning.",
+      "desiredState": "User-driven Entra join; standard user; hardware hash extraction on; assigned to the approved Autopilot device group.",
+      "businessImpact": "Without Autopilot, new devices are built inconsistently and users are often left as local administrators.",
+      "engineerAction": "Review the Autopilot profile capture; confirm user type Standard, deployment mode user-driven and assignment to the Autopilot group.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "autopilot",
+      "assessment": { "mode": "manual", "manualInstructions": "Check outOfBoxExperienceSetting.userType is standard, deviceUsageType singleUser, and assignments target the approved device group." },
+      "expectedProduction": { "state": "Configured", "assignment": "Autopilot device group" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Beta API; created manually." }
+    },
+    {
+      "id": "ENR-004", "name": "Enrolment Status Page", "category": "Enrolment", "severity": "Low",
+      "purpose": "Users wait for the agreed blocking apps before using a new device.",
+      "desiredState": "ESP enabled with the agreed blocking app list; Office deployed after ESP readiness.",
+      "businessImpact": "Without ESP users start work before security agents are installed.",
+      "engineerAction": "Review the windows10EnrollmentCompletionPageConfiguration capture for the blocking app list and timeout.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "enrolment",
+      "assessment": { "mode": "manual", "manualInstructions": "Find windows10EnrollmentCompletionPageConfiguration objects; confirm showInstallationProgress, blockDeviceSetupRetryByUser and selectedMobileAppIds match the agreed list." },
+      "expectedProduction": { "state": "Configured", "assignment": "All devices" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Changed manually." }
+    },
+    {
+      "id": "ENR-005", "name": "Apple MDM ownership and certificate", "category": "Enrolment", "severity": "Medium",
+      "purpose": "Apple enrolment depends on a certificate owned by the client organisation.",
+      "desiredState": "Organisation-owned Apple account; certificate ownership and renewal date recorded.",
+      "businessImpact": "A certificate tied to an individual's Apple ID expires or is lost when that person leaves, breaking iOS management.",
+      "engineerAction": "Record the Apple ID owner and the certificate expiry in the client documentation; set a renewal reminder.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": null,
+      "assessment": { "mode": "manual", "manualInstructions": "Check Intune > Tenant administration > Connectors and tokens > Apple MDM Push certificate. Not readable through the collected Graph collections." },
+      "expectedProduction": { "state": "Recorded and valid", "assignment": "n/a" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Never automated." }
+    },
+    {
+      "id": "ENR-006", "name": "Managed Google Play connection", "category": "Enrolment", "severity": "Medium",
+      "purpose": "Android Enterprise management depends on an organisation-owned Google account.",
+      "desiredState": "Organisation-owned Google account; managed Google Play connection validated.",
+      "businessImpact": "A connection bound to a personal Google account can be lost when the owner leaves.",
+      "engineerAction": "Record the Google account owner and validate the connection status in Intune.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": null,
+      "assessment": { "mode": "manual", "manualInstructions": "Check Intune > Tenant administration > Connectors and tokens > Managed Google Play. Not readable through the collected Graph collections." },
+      "expectedProduction": { "state": "Connected", "assignment": "n/a" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Never automated." }
+    },
+    {
+      "id": "CMP-001", "name": "Devices with no compliance policy", "category": "Compliance", "severity": "High",
+      "purpose": "Devices without any compliance policy must not be treated as compliant.",
+      "desiredState": "Tenant default: devices with no compliance policy assigned are Not compliant.",
+      "businessImpact": "The default 'compliant' setting lets unmanaged devices pass device-based Conditional Access.",
+      "engineerAction": "Set Compliance policy settings > Mark devices with no compliance policy assigned as Not compliant.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "compliance",
+      "assessment": { "mode": "manual", "manualInstructions": "This tenant-wide setting (deviceManagement settings) is not part of the compliance policy collection; confirm it in Intune > Devices > Compliance > Compliance settings." },
+      "expectedProduction": { "state": "Not compliant", "assignment": "Tenant-wide" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Changed manually." }
+    },
+    {
+      "id": "CMP-WIN-001", "name": "Windows core compliance", "category": "Compliance", "severity": "High",
+      "purpose": "Define the minimum health of a compliant Windows device.",
+      "desiredState": "Supported OS, BitLocker, Secure Boot, code integrity, TPM and antivirus required according to the approved release profile.",
+      "businessImpact": "Without a compliance policy, device-based Conditional Access cannot distinguish healthy devices from compromised ones.",
+      "engineerAction": "Deploy the unassigned candidate, validate against a pilot device, then assign to the managed Windows device group.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "compliance",
+      "assessment": { "mode": "settings" },
+      "expectedProduction": { "state": "assigned", "assignment": "GRP - Managed Windows Devices (all corporate Windows)" },
+      "safeDeployment": { "state": "unassigned", "assignment": "Created with no assignment", "notes": "Assignment is an explicit post-creation step." },
+      "payload": {
+        "@odata.type": "#microsoft.graph.windows10CompliancePolicy",
+        "displayName": "BDIT - CMP-WIN-001 - Windows core compliance",
+        "description": "Business Premium provider-neutral core; verify device health after assignment.",
+        "bitLockerEnabled": true,
+        "secureBootEnabled": true,
+        "codeIntegrityEnabled": true,
+        "tpmRequired": true,
+        "antivirusRequired": true,
+        "osMinimumVersion": "10.0.26200.0",
+        "scheduledActionsForRule": [
+          { "ruleName": "PasswordRequired", "scheduledActionConfigurations": [ { "actionType": "block", "gracePeriodHours": 0, "notificationTemplateId": "", "notificationMessageCCList": [] } ] }
+        ]
+      },
+      "references": { "microsoft": "https://learn.microsoft.com/mem/intune/protect/compliance-policy-create-windows" }
+    },
+    {
+      "id": "CMP-WIN-002", "name": "Defender compliance supplement", "category": "Compliance", "severity": "Medium",
+      "purpose": "Additional Defender-specific compliance checks where Defender is the protection provider.",
+      "desiredState": "Enable Defender real-time protection, signature and risk-score checks only when Defender is the selected provider (not ESET).",
+      "businessImpact": "Applying Defender checks to ESET-protected devices marks healthy devices non-compliant; omitting them on Defender devices weakens detection.",
+      "engineerAction": "Confirm the protection provider for the client and review the supplementary compliance policy accordingly.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "compliance",
+      "assessment": { "mode": "manual", "manualInstructions": "Where Defender is the provider, check a Windows compliance policy sets defenderEnabled, rtpEnabled, signatureOutOfDate and deviceThreatProtectionRequiredSecurityLevel." },
+      "expectedProduction": { "state": "assigned (Defender clients only)", "assignment": "Managed Windows devices" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Provider-specific; created manually." }
+    },
+    {
+      "id": "CMP-IOS-001", "name": "iOS and iPadOS compliance", "category": "Compliance", "severity": "Medium",
+      "purpose": "Minimum health for compliant Apple mobile devices.",
+      "desiredState": "Supported OS, passcode and jailbreak checks; validated on enrolled devices.",
+      "businessImpact": "Jailbroken or unlocked phones expose company mail and files.",
+      "engineerAction": "Deploy the unassigned candidate, validate on a pilot device, then assign to iOS users.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "compliance",
+      "assessment": { "mode": "settings" },
+      "expectedProduction": { "state": "assigned", "assignment": "All users (iOS platform)" },
+      "safeDeployment": { "state": "unassigned", "assignment": "Created with no assignment" },
+      "payload": {
+        "@odata.type": "#microsoft.graph.iosCompliancePolicy",
+        "displayName": "BDIT - CMP-IOS-001 - iOS compliance",
+        "description": "Passcode, OS version and jailbreak checks.",
+        "passcodeRequired": true,
+        "passcodeBlockSimple": true,
+        "passcodeRequiredType": "numeric",
+        "passcodeMinimumLength": 6,
+        "passcodeMinutesOfInactivityBeforeLock": 5,
+        "osMinimumVersion": "18.0",
+        "securityBlockJailbrokenDevices": true,
+        "scheduledActionsForRule": [
+          { "ruleName": "PasswordRequired", "scheduledActionConfigurations": [ { "actionType": "block", "gracePeriodHours": 0, "notificationTemplateId": "", "notificationMessageCCList": [] } ] }
+        ]
+      }
+    },
+    {
+      "id": "CMP-AND-001", "name": "Android personal work profile compliance", "category": "Compliance", "severity": "Medium",
+      "purpose": "Minimum health for personally owned Android devices with a work profile.",
+      "desiredState": "Supported OS, root detection, work-profile password and Google Play services checks.",
+      "businessImpact": "Rooted or outdated Android devices expose the work profile.",
+      "engineerAction": "Review the androidWorkProfileCompliancePolicy capture; create per the build standard if missing.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "compliance",
+      "assessment": { "mode": "manual", "manualInstructions": "Locate androidWorkProfileCompliancePolicy objects and check securityBlockJailbrokenDevices, passwordRequired, osMinimumVersion and securityRequireGooglePlayServices." },
+      "expectedProduction": { "state": "assigned", "assignment": "All users (Android work profile)" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Recipe pending live validation; created manually." }
+    },
+    {
+      "id": "CMP-AND-002", "name": "Android corporate compliance", "category": "Compliance", "severity": "Medium",
+      "purpose": "Minimum health for company-owned Android devices.",
+      "desiredState": "Corporate enrolment types use the appropriate password, OS and integrity requirements.",
+      "businessImpact": "Company-owned Android devices without compliance checks bypass device-based Conditional Access.",
+      "engineerAction": "Review the androidDeviceOwnerCompliancePolicy capture; create per the build standard if missing.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "compliance",
+      "assessment": { "mode": "manual", "manualInstructions": "Locate androidDeviceOwnerCompliancePolicy objects and check password, OS version and Play Integrity settings." },
+      "expectedProduction": { "state": "assigned", "assignment": "Corporate Android devices" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Created manually." }
+    },
+    {
+      "id": "CFG-WIN-001", "name": "BitLocker and recovery escrow", "category": "Device configuration", "severity": "High",
+      "purpose": "Encrypt Windows devices and escrow recovery keys before encryption starts.",
+      "desiredState": "Recovery information must be saved to Entra ID before new encryption starts; silent encryption for standard users.",
+      "businessImpact": "Lost or stolen laptops without escrowed keys are unrecoverable and unencrypted devices expose data.",
+      "engineerAction": "Review the settings catalogue / endpoint security disk encryption policy; confirm recovery key escrow to Entra ID is required.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "settingsCatalogue",
+      "assessment": { "mode": "manual", "manualInstructions": "Find the BitLocker policy in the settings catalogue capture and check the RequireDeviceEncryption, recovery key escrow (Entra ID) and silent encryption settings in its child settings." },
+      "expectedProduction": { "state": "assigned", "assignment": "GRP - Managed Windows Devices" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Settings catalogue recipe pending live validation; created manually." },
+      "references": { "microsoft": "https://learn.microsoft.com/mem/intune/protect/encrypt-devices" }
+    },
+    {
+      "id": "CFG-WIN-002", "name": "Windows LAPS", "category": "Device configuration", "severity": "High",
+      "purpose": "Unique, rotated local administrator passwords on every Windows device.",
+      "desiredState": "LAPS enabled in Entra; local account provisioned separately; rotate every 7 days; reset after use within 24 hours.",
+      "businessImpact": "Shared local administrator passwords allow lateral movement across every device.",
+      "engineerAction": "Confirm Entra LAPS is enabled at tenant level and the LAPS account protection policy is assigned.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "settingsCatalogue",
+      "assessment": { "mode": "manual", "manualInstructions": "Find the LAPS account protection policy in the settings catalogue capture; check BackupDirectory (Entra), PasswordAgeDays 7 and PostAuthenticationResetDelay 24." },
+      "expectedProduction": { "state": "assigned", "assignment": "GRP - Managed Windows Devices" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Created manually." }
+    },
+    {
+      "id": "CFG-WIN-003", "name": "Windows Hello for Business", "category": "Device configuration", "severity": "Medium",
+      "purpose": "Enable Windows Hello with a hardware-backed key and suppress the post-logon provisioning prompt.",
+      "desiredState": "Tenant enrolment setting Not configured; dedicated custom OMA policy enables Hello, requires a security device and disables post-logon provisioning.",
+      "businessImpact": "Password-only Windows sign-in is phishable; forced provisioning at first logon disrupts Autopilot builds.",
+      "engineerAction": "Deploy the unassigned candidate, validate on a TPM 2.0 pilot device, then assign to managed Windows devices.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "configuration",
+      "assessment": { "mode": "settings" },
+      "expectedProduction": { "state": "assigned", "assignment": "GRP - Managed Windows Devices" },
+      "safeDeployment": { "state": "unassigned", "assignment": "Created with no assignment" },
+      "payload": {
+        "@odata.type": "#microsoft.graph.windows10CustomConfiguration",
+        "displayName": "BDIT - CFG-WIN-003 - Windows Hello for Business",
+        "description": "Dedicated Hello policy; the tenant enrolment setting must remain Not configured.",
+        "omaSettings": [
+          { "@odata.type": "#microsoft.graph.omaSettingBoolean", "displayName": "UsePassportForWork", "omaUri": "./Device/Vendor/MSFT/PassportForWork/{{tenantId}}/Policies/UsePassportForWork", "value": true },
+          { "@odata.type": "#microsoft.graph.omaSettingBoolean", "displayName": "DisablePostLogonProvisioning", "omaUri": "./Device/Vendor/MSFT/PassportForWork/{{tenantId}}/Policies/DisablePostLogonProvisioning", "value": true },
+          { "@odata.type": "#microsoft.graph.omaSettingBoolean", "displayName": "RequireSecurityDevice", "omaUri": "./Device/Vendor/MSFT/PassportForWork/{{tenantId}}/Policies/RequireSecurityDevice", "value": true }
+        ]
+      }
+    },
+    {
+      "id": "CFG-WIN-004", "name": "Windows core restrictions", "category": "Device configuration", "severity": "Medium",
+      "purpose": "Baseline device restrictions and lock behaviour.",
+      "desiredState": "Apply the core device restrictions and lock behaviour; avoid duplicate settings across profiles.",
+      "businessImpact": "Unlocked, unattended devices and permissive defaults expose data in shared spaces.",
+      "engineerAction": "Review the settings catalogue capture for the core restrictions policy; check for overlapping profiles configuring the same settings.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "settingsCatalogue",
+      "assessment": { "mode": "manual", "manualInstructions": "Compare the child settings of the core restrictions policy with the build standard document; note any other policy that sets the same setting definition IDs." },
+      "expectedProduction": { "state": "assigned", "assignment": "GRP - Managed Windows Devices" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Created manually." }
+    },
+    {
+      "id": "CFG-WIN-005", "name": "OneDrive sign-in and Known Folder Move", "category": "Device configuration", "severity": "Low",
+      "purpose": "Protect user files by redirecting known folders to OneDrive silently.",
+      "desiredState": "Silent account configuration and Known Folder Move for Desktop, Documents and Pictures; opt-out blocked; verified on a pilot device.",
+      "businessImpact": "Files kept only on a local disk are lost with the device.",
+      "engineerAction": "Review the OneDrive settings catalogue policy; verify KFM on a pilot device.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "settingsCatalogue",
+      "assessment": { "mode": "manual", "manualInstructions": "Check the OneDrive policy child settings: SilentAccountConfig, KFMSilentOptIn (tenant ID), KFMBlockOptOut." },
+      "expectedProduction": { "state": "assigned", "assignment": "GRP - Managed Users" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Created manually." }
+    },
+    {
+      "id": "CFG-WIN-006", "name": "Microsoft Edge configuration", "category": "Device configuration", "severity": "Low",
+      "purpose": "Consistent, work-account browser configuration.",
+      "desiredState": "Work account sign-in and the agreed browser settings; effective configuration verified on a pilot device.",
+      "businessImpact": "Unmanaged browsers leak credentials and data through personal profiles and extensions.",
+      "engineerAction": "Review the Edge settings catalogue policy against the build standard document.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "settingsCatalogue",
+      "assessment": { "mode": "manual", "manualInstructions": "Compare the Edge policy child settings with the build standard document." },
+      "expectedProduction": { "state": "assigned", "assignment": "GRP - Managed Windows Devices" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Created manually." }
+    },
+    {
+      "id": "CFG-WIN-007", "name": "Long paths (optional)", "category": "Device configuration", "severity": "Informational",
+      "purpose": "Optional compatibility setting for clients with deep folder structures.",
+      "desiredState": "Enable long paths only where selected in the tenant profile.",
+      "businessImpact": "Missing long-path support breaks synchronisation of deep folder trees; enabling it unnecessarily has no security impact.",
+      "engineerAction": "Apply only where the client documentation calls for it.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "settingsCatalogue",
+      "assessment": { "mode": "manual", "manualInstructions": "Check whether a settings catalogue policy sets LongPathsEnabled; compare with the client documentation." },
+      "expectedProduction": { "state": "Optional", "assignment": "Per client" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Optional; created manually." }
+    },
+    {
+      "id": "SEC-WIN-001", "name": "Antivirus configuration", "category": "Endpoint security", "severity": "High",
+      "purpose": "Exactly one active antivirus provider, correctly configured.",
+      "desiredState": "One active antivirus provider: ESET, Defender or a documented alternative; no conflicting real-time engines.",
+      "businessImpact": "Two active engines cause conflicts and gaps; none leaves devices unprotected.",
+      "engineerAction": "Identify the provider for the client and review the corresponding antivirus policy (Defender policy in settings catalogue, or ESET management).",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "settingsCatalogue",
+      "assessment": { "mode": "manual", "manualInstructions": "For Defender clients, find the Microsoft Defender Antivirus endpoint security policy and check real-time protection, cloud protection and tamper protection. For ESET clients, confirm Defender is passive." },
+      "expectedProduction": { "state": "assigned", "assignment": "GRP - Managed Windows Devices" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Provider-specific; created manually." }
+    },
+    {
+      "id": "SEC-WIN-002", "name": "Endpoint detection and response", "category": "Endpoint security", "severity": "High",
+      "purpose": "EDR onboarding for the licensed provider.",
+      "desiredState": "The licensed connector, onboarding and telemetry are in place for the chosen provider.",
+      "businessImpact": "Without EDR, compromises are detected late or not at all.",
+      "engineerAction": "Review the EDR onboarding policy (Defender for Business) or the ESET Inspect deployment per client.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "settingsCatalogue",
+      "assessment": { "mode": "manual", "manualInstructions": "For Defender for Business clients, find the endpoint detection and response policy and confirm onboarding via the connector. Otherwise verify the provider's console." },
+      "expectedProduction": { "state": "assigned", "assignment": "GRP - Managed Windows Devices" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Provider-specific; created manually." }
+    },
+    {
+      "id": "SEC-WIN-003", "name": "Firewall protection", "category": "Endpoint security", "severity": "Medium",
+      "purpose": "Host firewall enabled on every profile and managed by the chosen provider.",
+      "desiredState": "The chosen provider manages the host firewall; ESET firewall where provided; Windows Firewall on for domain, private and public profiles otherwise.",
+      "businessImpact": "A disabled host firewall exposes devices to lateral movement on shared networks.",
+      "engineerAction": "Review the firewall endpoint security policy or the ESET firewall configuration.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "settingsCatalogue",
+      "assessment": { "mode": "manual", "manualInstructions": "Find the firewall policy in the settings catalogue capture; confirm all three profiles are enabled with inbound connections blocked by default." },
+      "expectedProduction": { "state": "assigned", "assignment": "GRP - Managed Windows Devices" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Created manually." }
+    },
+    {
+      "id": "MAM-IOS-001", "name": "iOS app protection", "category": "App protection", "severity": "High",
+      "purpose": "Protect company data inside Microsoft apps on iOS.",
+      "desiredState": "Broad user assignment; corporate data restricted to managed apps; PIN required; MAM-only access requires manual group approval.",
+      "businessImpact": "Without app protection, company data flows into personal apps and backups.",
+      "engineerAction": "Review the iOS managed app protection policy capture against the build standard.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "appProtection",
+      "assessment": { "mode": "manual", "manualInstructions": "Find iosManagedAppProtection objects; check data transfer restrictions, PIN requirement, offline grace period and assignment." },
+      "equivalence": {
+        "note": "An iOS app protection policy that requires a PIN and keeps corporate data in managed apps covers the core of this control. It does not show who the policy is assigned to, nor which apps it targets, so confirm both before accepting coverage.",
+        "signals": [
+          { "key": "ios", "label": "Is an iOS app protection policy", "path": "@odata.type", "operator": "equals", "value": "#microsoft.graph.iosManagedAppProtection" },
+          { "key": "pin", "label": "Requires a PIN to open company data", "path": "pinRequired", "operator": "equals", "value": true },
+          { "key": "managedAppsOnly", "label": "Restricts cut, copy and paste to managed apps", "path": "allowedOutboundClipboardSharingLevel", "operator": "equalsAny", "value": [ "managedApps", "managedAppsWithPasteIn" ] },
+          { "key": "saveAs", "label": "Blocks saving company data to unmanaged locations", "path": "saveAsBlocked", "operator": "equals", "value": true }
+        ],
+        "caveats": [
+          { "key": "unassigned", "label": "No assignment was captured, so this policy may protect nobody", "path": "_assignments", "operator": "empty" },
+          { "key": "assignmentUnknown", "label": "Assignments could not be read for this policy", "path": "_assignmentsUnknown", "operator": "present" }
+        ]
+      },
+      "expectedProduction": { "state": "assigned", "assignment": "All users" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Created manually." }
+    },
+    {
+      "id": "MAM-AND-001", "name": "Android app protection", "category": "App protection", "severity": "High",
+      "purpose": "Protect company data inside Microsoft apps on Android.",
+      "desiredState": "Broad user assignment; offline block after 1,440 minutes; work-data wipe after 90 days offline.",
+      "businessImpact": "Without app protection, company data flows into personal apps and backups.",
+      "engineerAction": "Review the Android managed app protection policy capture against the build standard.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "appProtection",
+      "assessment": { "mode": "manual", "manualInstructions": "Find androidManagedAppProtection objects; check periodOfflineBeforeAccessCheck (1440 minutes), periodOfflineBeforeWipeIsEnforced (90 days) and assignment." },
+      "equivalence": {
+        "note": "An Android app protection policy that requires a PIN and keeps corporate data in managed apps covers the core of this control. The offline access and wipe periods in the BDIT standard are not compared here; read them from the captured values shown.",
+        "signals": [
+          { "key": "android", "label": "Is an Android app protection policy", "path": "@odata.type", "operator": "equals", "value": "#microsoft.graph.androidManagedAppProtection" },
+          { "key": "pin", "label": "Requires a PIN to open company data", "path": "pinRequired", "operator": "equals", "value": true },
+          { "key": "managedAppsOnly", "label": "Restricts cut, copy and paste to managed apps", "path": "allowedOutboundClipboardSharingLevel", "operator": "equalsAny", "value": [ "managedApps", "managedAppsWithPasteIn" ] },
+          { "key": "saveAs", "label": "Blocks saving company data to unmanaged locations", "path": "saveAsBlocked", "operator": "equals", "value": true }
+        ],
+        "caveats": [
+          { "key": "unassigned", "label": "No assignment was captured, so this policy may protect nobody", "path": "_assignments", "operator": "empty" },
+          { "key": "offlineWipe", "label": "Offline wipe period to compare with the standard (90 days)", "path": "periodOfflineBeforeWipeIsEnforced", "operator": "present" },
+          { "key": "offlineAccess", "label": "Offline access period to compare with the standard (1,440 minutes)", "path": "periodOfflineBeforeAccessCheck", "operator": "present" }
+        ]
+      },
+      "expectedProduction": { "state": "assigned", "assignment": "All users" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Created manually." }
+    },
+    {
+      "id": "APP-WIN-001", "name": "Microsoft 365 Apps", "category": "Applications", "severity": "Medium",
+      "purpose": "Standard Office deployment.",
+      "desiredState": "Microsoft 365 Apps for business, 64-bit, en-GB, Monthly Enterprise channel; assigned to GRP - Office Install Ready after ESP.",
+      "businessImpact": "Inconsistent Office builds cause support overhead and unpatched installations.",
+      "engineerAction": "Review the officeSuiteApp capture: architecture, channel, language and assignment group.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "apps",
+      "assessment": { "mode": "manual", "manualInstructions": "Find officeSuiteApp objects; check officePlatformArchitecture x64, updateChannel monthlyEnterprise, localesToInstall en-GB and assignments." },
+      "expectedProduction": { "state": "assigned", "assignment": "GRP - Office Install Ready" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Created manually." }
+    },
+    {
+      "id": "APP-WIN-002", "name": "Company Portal", "category": "Applications", "severity": "Low",
+      "purpose": "Users can self-service approved apps and see device compliance.",
+      "desiredState": "Company Portal deployed to the agreed Windows scope.",
+      "businessImpact": "Without Company Portal users cannot resolve compliance issues themselves.",
+      "engineerAction": "Confirm the Company Portal (Microsoft Store app) is assigned to managed Windows devices.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "apps",
+      "assessment": { "mode": "manual", "manualInstructions": "Find the Company Portal app (winGetApp or microsoftStoreForBusinessApp) and check its assignment." },
+      "expectedProduction": { "state": "assigned", "assignment": "GRP - Managed Windows Devices" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Created manually." }
+    },
+    {
+      "id": "APP-WIN-003", "name": "Google Chrome", "category": "Applications", "severity": "Low",
+      "purpose": "Approved browser package where the client uses Chrome.",
+      "desiredState": "Deploy the approved Chrome package to supported Windows devices.",
+      "businessImpact": "Unmanaged browser installations drift out of update control.",
+      "engineerAction": "Confirm the approved Chrome package (winGet or Win32) and its assignment.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "apps",
+      "assessment": { "mode": "manual", "manualInstructions": "Find the Chrome app object and check its assignment and install behaviour." },
+      "expectedProduction": { "state": "assigned", "assignment": "Per client scope" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Created manually." }
+    },
+    {
+      "id": "APP-WIN-004", "name": "Adobe Acrobat Reader", "category": "Applications", "severity": "Low",
+      "purpose": "Approved PDF reader package.",
+      "desiredState": "Deploy the approved Reader package; retain paid-product exceptions.",
+      "businessImpact": "Outdated PDF readers are a common exploitation target.",
+      "engineerAction": "Confirm the approved Reader package and its assignment; record paid Acrobat exceptions.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "apps",
+      "assessment": { "mode": "manual", "manualInstructions": "Find the Acrobat Reader app object and check its assignment." },
+      "expectedProduction": { "state": "assigned", "assignment": "Per client scope" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Created manually." }
+    },
+    {
+      "id": "APP-WIN-005", "name": "OneDrive application", "category": "Applications", "severity": "Low",
+      "purpose": "Maintained sync client.",
+      "desiredState": "Confirm the sync client is available and maintained on the per-machine installer.",
+      "businessImpact": "Outdated sync clients cause data loss and support calls.",
+      "engineerAction": "Confirm the OneDrive per-machine installer is deployed or included with Microsoft 365 Apps.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "apps",
+      "assessment": { "mode": "manual", "manualInstructions": "Check for a OneDrive app object or confirm coverage through the Microsoft 365 Apps package." },
+      "expectedProduction": { "state": "assigned", "assignment": "GRP - Managed Windows Devices" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Created manually." }
+    },
+    {
+      "id": "APP-WIN-006", "name": "Microsoft Teams", "category": "Applications", "severity": "Low",
+      "purpose": "Approved Teams package with verified sign-in.",
+      "desiredState": "Deploy the approved Teams package and verify sign-in.",
+      "businessImpact": "Unmanaged Teams installs miss updates and cause collaboration failures.",
+      "engineerAction": "Confirm the Teams package and its assignment.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "apps",
+      "assessment": { "mode": "manual", "manualInstructions": "Find the Teams app object and check its assignment." },
+      "expectedProduction": { "state": "assigned", "assignment": "GRP - Managed Windows Devices" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Created manually." }
+    },
+    {
+      "id": "APP-WIN-007", "name": "Remote management agent", "category": "Applications", "severity": "Medium",
+      "purpose": "BDIT remote management and monitoring agent on every managed device.",
+      "desiredState": "Use the client-specific installer and validate the device appears in the management console.",
+      "businessImpact": "Devices without the agent are invisible to monitoring and patching.",
+      "engineerAction": "Confirm the client-specific agent package is assigned and devices appear in the RMM console.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "apps",
+      "assessment": { "mode": "manual", "manualInstructions": "Find the RMM agent app object (Win32) and check its assignment; verify console enrolment separately." },
+      "expectedProduction": { "state": "assigned", "assignment": "GRP - Managed Windows Devices" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Client-specific; created manually." }
+    },
+    {
+      "id": "APP-WIN-008", "name": "Endpoint protection agent", "category": "Applications", "severity": "High",
+      "purpose": "Endpoint protection agent for the chosen provider.",
+      "desiredState": "Use the chosen provider package, registration settings and device-level verification.",
+      "businessImpact": "Devices without the protection agent are unprotected regardless of policy.",
+      "engineerAction": "Confirm the provider package (for example ESET) is assigned and devices report in the provider console.",
+      "licence": { "servicePlans": [ "INTUNE_A" ] },
+      "collection": "apps",
+      "assessment": { "mode": "manual", "manualInstructions": "Find the endpoint protection agent app object and check its assignment; verify console registration separately." },
+      "expectedProduction": { "state": "assigned", "assignment": "GRP - Managed Windows Devices" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Provider-specific; created manually." }
+    },
+    {
+      "id": "UPD-001", "name": "Windows Autopatch", "category": "Updates", "severity": "High",
+      "purpose": "Managed, ringed Windows and Office updates.",
+      "desiredState": "Prerequisites confirmed, service registered, deployment rings in place and ownership of update settings recorded.",
+      "businessImpact": "Unpatched devices are the most common route for ransomware.",
+      "engineerAction": "Confirm Autopatch registration, ring membership and that no conflicting update rings exist.",
+      "licence": { "servicePlans": [ "INTUNE_A" ], "note": "Windows Autopatch is included with Business Premium." },
+      "collection": null,
+      "assessment": { "mode": "manual", "manualInstructions": "Check Intune > Devices > Windows updates > Autopatch. Not readable through the collected Graph collections." },
+      "expectedProduction": { "state": "Registered and ringed", "assignment": "All managed Windows devices" },
+      "safeDeployment": { "state": "", "assignment": "", "notes": "Never automated." }
+    }
+  ]
+}

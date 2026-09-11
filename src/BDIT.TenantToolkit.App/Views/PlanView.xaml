@@ -1,0 +1,73 @@
+<UserControl x:Class="BDIT.TenantToolkit.App.Views.PlanView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid Margin="24">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+    <StackPanel Grid.Row="0">
+      <TextBlock Text="Plan changes" Style="{StaticResource H1}"/>
+      <TextBlock Style="{StaticResource Lead}" Text="Select controls, then build an integrity-bound plan. Conditional Access candidates are created disabled with the emergency accounts and the signed-in operator excluded; Intune objects are created unassigned. Existing objects are never adopted by name or overwritten."/>
+      <Border Style="{StaticResource Panel}">
+        <StackPanel>
+          <TextBlock Text="{Binding ContextText}"/>
+          <TextBlock Text="{Binding PlanText}" FontWeight="SemiBold" Margin="0,6,0,8"/>
+          <WrapPanel>
+            <Button Content="Select eligible controls" Command="{Binding SelectEligibleCommand}" Style="{StaticResource SecondaryButton}"/>
+            <Button Content="Clear selection" Command="{Binding ClearSelectionCommand}" Style="{StaticResource SecondaryButton}"/>
+            <Button Content="Build plan" Command="{Binding BuildPlanCommand}"/>
+          </WrapPanel>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+    <DataGrid Grid.Row="1" ItemsSource="{Binding Controls}" IsReadOnly="False" Margin="0,0,0,12">
+      <DataGrid.Columns>
+        <DataGridCheckBoxColumn Header="Select" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" Width="60"/>
+        <DataGridTextColumn Header="Control" Binding="{Binding ControlId}" Width="100" IsReadOnly="True"/>
+        <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="220" IsReadOnly="True"/>
+        <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="150" IsReadOnly="True"/>
+        <DataGridTextColumn Header="Automation" Binding="{Binding Status}" Width="130" IsReadOnly="True"/>
+        <DataGridTextColumn Header="Safe state" Binding="{Binding SafeState}" Width="90" IsReadOnly="True"/>
+        <DataGridTextColumn Header="Explanation" Binding="{Binding Explanation}" Width="*" IsReadOnly="True"/>
+      </DataGrid.Columns>
+    </DataGrid>
+    <Grid Grid.Row="2">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="5*"/>
+        <ColumnDefinition Width="4*"/>
+      </Grid.ColumnDefinitions>
+      <DataGrid Grid.Column="0" ItemsSource="{Binding Rows}" SelectedItem="{Binding SelectedRow, Mode=TwoWay}" Margin="0,0,14,0">
+        <DataGrid.RowStyle>
+          <Style TargetType="DataGridRow">
+            <Setter Property="Background" Value="{Binding Action, Converter={StaticResource StatusToBrush}}"/>
+          </Style>
+        </DataGrid.RowStyle>
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Control" Binding="{Binding ControlId}" Width="100"/>
+          <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200"/>
+          <DataGridTextColumn Header="Action" Binding="{Binding Action}" Width="90"/>
+          <DataGridTextColumn Header="Explanation" Binding="{Binding Reason}" Width="*"/>
+        </DataGrid.Columns>
+      </DataGrid>
+      <DockPanel Grid.Column="1">
+        <TextBox DockPanel.Dock="Top" Text="{Binding RowDetail, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0" Background="{StaticResource BgPanel}" Padding="10" MaxHeight="160" VerticalScrollBarVisibility="Auto"/>
+        <Grid Margin="0,8,0,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+          <DockPanel Grid.Column="0" Margin="0,0,6,0">
+            <TextBlock DockPanel.Dock="Top" Text="Current object (if any)" Style="{StaticResource Muted}"/>
+            <TextBox Text="{Binding BeforeJson, Mode=OneWay}" IsReadOnly="True" FontFamily="Consolas" FontSize="11" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap"/>
+          </DockPanel>
+          <DockPanel Grid.Column="1">
+            <TextBlock DockPanel.Dock="Top" Text="Exact payload to be written" Style="{StaticResource Muted}"/>
+            <TextBox Text="{Binding PayloadJson, Mode=OneWay}" IsReadOnly="True" FontFamily="Consolas" FontSize="11" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap"/>
+          </DockPanel>
+        </Grid>
+      </DockPanel>
+    </Grid>
+  </Grid>
+</UserControl>

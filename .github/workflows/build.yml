@@ -1,0 +1,108 @@
+name: Build and test
+
+# Every change, from any contributor or model, must build and pass the safety tests before it can be merged.
+# This is the check that keeps parallel work honest: an agent cannot claim a green build, only produce one.
+# Runs on every branch, so an upload to a review branch (for example incoming/*) is verified without a pull request.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # WPF requires Windows; the toolkit only ever ships win-x64.
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
+          restore-keys: nuget-
+
+      - name: Restore
+        run: dotnet restore BDIT.TenantToolkit.sln
+
+      - name: Build
+        run: dotnet build BDIT.TenantToolkit.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test tests/BDIT.TenantToolkit.Tests -c Release --no-build --logger "trx;LogFileName=tests.trx" --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/
+
+  standard:
+    # The Build Standard is data that drives writes to client tenants. It must stay loadable and safe.
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Every standard release is valid JSON
+        shell: pwsh
+        run: |
+          Get-ChildItem standards -Filter *.json | ForEach-Object {
+            try { Get-Content $_.FullName -Raw | ConvertFrom-Json | Out-Null }
+            catch { throw "$($_.Name) is not valid JSON: $_" }
+            Write-Host "OK $($_.Name)"
+          }
+
+      - name: No Conditional Access recipe requests an enforcing state
+        shell: pwsh
+        run: |
+          # The catalogue validator enforces this at load time; checking it here too means a bad standard
+          # never reaches a branch, rather than failing on an engineer's machine.
+          $bad = @()
+          Get-ChildItem standards -Filter *.json | ForEach-Object {
+            $json = Get-Content $_.FullName -Raw | ConvertFrom-Json
+            foreach ($c in $json.controls) {
+              if ($c.payload -and $c.payload.state -and $c.payload.state -ne 'disabled') {
+                $bad += "$($_.Name): $($c.id) requests state '$($c.payload.state)'"
+              }
+              if ($c.payload.PSObject.Properties.Name -contains 'assignments') {
+                $bad += "$($_.Name): $($c.id) payload contains assignments"
+              }
+            }
+          }
+          if ($bad) { $bad | ForEach-Object { Write-Error $_ }; exit 1 }
+          Write-Host "All recipes are disabled candidates with no assignments."
+
+  secrets:
+    # Tenant evidence and client identifiers must never reach the repository.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No tenant evidence or configured client IDs committed
+        shell: bash
+        run: |
+          fail=0
+          for path in data logs app portable dist .dotnet; do
+            if git ls-files --error-unmatch "$path" >/dev/null 2>&1; then
+              echo "::error::$path is tracked; it must stay local and ignored."
+              fail=1
+            fi
+          done
+          # Shipped settings must be templates. A real client ID here would follow the repo everywhere.
+          if grep -Eq '"(assessment|deployment)ClientId"[[:space:]]*:[[:space:]]*"[0-9a-fA-F-]{36}"' config/toolkit.settings.json; then
+            echo "::error::config/toolkit.settings.json contains a real client ID. Leave it empty in the repository."
+            fail=1
+          fi
+          exit $fail

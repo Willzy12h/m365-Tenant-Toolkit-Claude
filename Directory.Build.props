@@ -1,0 +1,25 @@
+<Project>
+  <!-- Shared build settings for every project in the BDIT Microsoft 365 Tenant Toolkit solution. -->
+  <PropertyGroup>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <NeutralLanguage>en-GB</NeutralLanguage>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <Company>Blue Diamond IT</Company>
+    <Product>BDIT Microsoft 365 Tenant Toolkit</Product>
+    <Authors>Blue Diamond IT</Authors>
+    <Copyright>Copyright (c) Blue Diamond IT</Copyright>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <!-- Nullability diagnostics are reported as warnings and must be reviewed; they are never suppressed. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CA1848;CA2007</NoWarn>
+  </PropertyGroup>
+</Project>

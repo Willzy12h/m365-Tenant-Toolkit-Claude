@@ -1,0 +1,73 @@
+<UserControl x:Class="BDIT.TenantToolkit.App.Views.DeployView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="24">
+      <TextBlock Text="Deploy safe candidates" Style="{StaticResource H1}"/>
+      <TextBlock Style="{StaticResource Lead}" Text="Deployment removes repetitive policy creation. It is not a 'make compliant' button: every object is created disabled or unassigned, verified by readback, and recorded with before and after evidence."/>
+
+      <Border Style="{StaticResource WarnPanel}">
+        <StackPanel>
+          <TextBlock FontWeight="SemiBold" Text="What this will and will not do"/>
+          <TextBlock Margin="0,6,0,0" Text="Conditional Access candidates are created in the disabled state with the expected targeting, the emergency accounts, the optional exclusion group and the signed-in operator excluded. The operator exclusion does not expire; remove it deliberately after testing. Intune objects are created with no assignment. Nothing is enabled, assigned, deleted or overwritten. Staged validation, assignment and enforcement remain engineering steps documented in the Build Standard summary."/>
+        </StackPanel>
+      </Border>
+
+      <TextBlock Text="Prerequisites" Style="{StaticResource H2}"/>
+      <DataGrid ItemsSource="{Binding Prerequisites}" MaxHeight="220" Margin="0,0,0,10">
+        <DataGrid.RowStyle>
+          <Style TargetType="DataGridRow">
+            <Setter Property="Background" Value="{Binding Status, Converter={StaticResource StatusToBrush}}"/>
+          </Style>
+        </DataGrid.RowStyle>
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Step" Binding="{Binding Step}" Width="280"/>
+          <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="140"/>
+          <DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="*"/>
+        </DataGrid.Columns>
+      </DataGrid>
+      <WrapPanel>
+        <Button Content="1. Enable deployment access" Command="{Binding EnableDeploymentCommand}" Style="{StaticResource DangerButton}"/>
+        <Button Content="2. Read tenant configuration" Command="{Binding CaptureCommand}" Style="{StaticResource SecondaryButton}"/>
+        <Button Content="3. Export before-change capture" Command="{Binding ExportBeforeCommand}" Style="{StaticResource SecondaryButton}"/>
+        <Button Content="4. Acknowledge before-change capture" Command="{Binding AcknowledgeCommand}" Style="{StaticResource SecondaryButton}"/>
+      </WrapPanel>
+      <TextBlock Text="{Binding LastExport}" Style="{StaticResource Muted}"/>
+
+      <Border Style="{StaticResource DangerPanel}" Margin="0,14,0,14">
+        <StackPanel>
+          <TextBlock FontWeight="SemiBold" Foreground="{StaticResource Danger}" Text="Deploy reviewed changes (writes to the tenant)"/>
+          <TextBlock Margin="0,6,0,10" Text="You will be asked to type the tenant ID in full. The plan is re-validated (tenant, account, application, profile, standard, snapshot, mapping, digest, age) and every object is re-read live immediately before it is written."/>
+          <Button Content="Deploy reviewed changes" Command="{Binding DeployCommand}" Style="{StaticResource DangerButton}" HorizontalAlignment="Left"/>
+        </StackPanel>
+      </Border>
+
+      <TextBlock Text="Run" Style="{StaticResource H2}"/>
+      <TextBlock Text="{Binding RunText}" Margin="0,0,0,8"/>
+      <WrapPanel>
+        <Button Content="Pause after current action" Command="{Binding PauseCommand}" Style="{StaticResource SecondaryButton}"/>
+        <Button Content="Resume" Command="{Binding ResumeCommand}" Style="{StaticResource SecondaryButton}"/>
+        <Button Content="Stop after current action" Command="{Binding StopCommand}" Style="{StaticResource DangerButton}"/>
+        <Button Content="Export run (HTML)" Command="{Binding ExportRunHtmlCommand}" Style="{StaticResource SecondaryButton}"/>
+        <Button Content="Export run (JSON)" Command="{Binding ExportRunJsonCommand}" Style="{StaticResource SecondaryButton}"/>
+        <Button Content="Export run (Excel)" Command="{Binding ExportRunXlsxCommand}" Style="{StaticResource SecondaryButton}"/>
+      </WrapPanel>
+      <DataGrid ItemsSource="{Binding Results}" MaxHeight="320">
+        <DataGrid.RowStyle>
+          <Style TargetType="DataGridRow">
+            <Setter Property="Background" Value="{Binding Status, Converter={StaticResource StatusToBrush}}"/>
+          </Style>
+        </DataGrid.RowStyle>
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Control" Binding="{Binding ControlId}" Width="100"/>
+          <DataGridTextColumn Header="Planned" Binding="{Binding PlannedAction}" Width="90"/>
+          <DataGridTextColumn Header="Outcome" Binding="{Binding Status}" Width="100"/>
+          <DataGridTextColumn Header="Object ID" Binding="{Binding ObjectId}" Width="260"/>
+          <DataGridTextColumn Header="Readback" Binding="{Binding Configuration}" Width="90"/>
+          <DataGridTextColumn Header="Functional test" Binding="{Binding Verification}" Width="220"/>
+          <DataGridTextColumn Header="Reason" Binding="{Binding Reason}" Width="*"/>
+        </DataGrid.Columns>
+      </DataGrid>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

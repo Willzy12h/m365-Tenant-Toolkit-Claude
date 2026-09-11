@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>BDIT.TenantToolkit.Core</AssemblyName>
+    <RootNamespace>BDIT.TenantToolkit.Core</RootNamespace>
+    <Description>Models, contracts and pure safety logic for the BDIT Microsoft 365 Tenant Toolkit.</Description>
+  </PropertyGroup>
+</Project>

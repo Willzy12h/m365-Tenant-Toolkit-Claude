@@ -1,0 +1,18 @@
+{
+  "productName": "BDIT Tenant Toolkit",
+  "companyName": "Blue Diamond IT",
+  "accentColour": "#1769AA",
+
+  "assessmentClientId": "",
+  "deploymentClientId": "",
+  "allowMicrosoftGraphPowerShellFallback": true,
+
+  "defaultStandardRelease": "2026.09.3",
+  "snapshotMaxAgeMinutes": 20,
+  "planMaxAgeMinutes": 20,
+  "signInTimeoutMinutes": 5,
+  "graphReadTimeoutSeconds": 120,
+  "graphWriteTimeoutSeconds": 100,
+  "maxRetryAfterSeconds": 300,
+  "logLevel": "Information"
+}

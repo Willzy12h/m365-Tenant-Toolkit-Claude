@@ -1,0 +1,30 @@
+# Build output
+bin/
+obj/
+dist/
+portable/
+*.user
+*.suo
+.vs/
+TestResults/
+
+# Runtime data created by the toolkit itself (never commit tenant evidence)
+data/
+logs/
+app/
+
+# User-local SDK installed by BUILD-ME-FIRST.cmd
+.dotnet/
+
+# Local tooling
+*.log
+build/last-build.log
+*.tmp
+
+# Exported reports can contain client configuration and names
+reports/
+*.csv.zip
+
+# Never commit a local settings file carrying real client IDs; the repository copy stays a template
+config/toolkit.settings.local.json
+standards/manifest.json

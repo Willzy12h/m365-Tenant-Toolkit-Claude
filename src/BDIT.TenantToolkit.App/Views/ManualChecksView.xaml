@@ -1,0 +1,41 @@
+<UserControl x:Class="BDIT.TenantToolkit.App.Views.ManualChecksView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid Margin="24">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="*"/>
+      <ColumnDefinition Width="400"/>
+    </Grid.ColumnDefinitions>
+    <DockPanel Grid.Column="0" Margin="0,0,18,0">
+      <StackPanel DockPanel.Dock="Top">
+        <TextBlock Text="Manual checks and handover" Style="{StaticResource H1}"/>
+        <TextBlock Style="{StaticResource Lead}" Text="{Binding ContextText}"/>
+      </StackPanel>
+      <DataGrid ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected, Mode=TwoWay}">
+        <DataGrid.RowStyle>
+          <Style TargetType="DataGridRow">
+            <Setter Property="Background" Value="{Binding Status, Converter={StaticResource StatusToBrush}}"/>
+          </Style>
+        </DataGrid.RowStyle>
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="Control" Binding="{Binding ControlId}" Width="100"/>
+          <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="220"/>
+          <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="140"/>
+          <DataGridTextColumn Header="Outcome" Binding="{Binding Status}" Width="80"/>
+          <DataGridTextColumn Header="Evidence note" Binding="{Binding Note}" Width="*"/>
+          <DataGridTextColumn Header="Recorded" Binding="{Binding RecordedAt}" Width="160"/>
+        </DataGrid.Columns>
+      </DataGrid>
+    </DockPanel>
+    <Border Grid.Column="1" Style="{StaticResource Panel}">
+      <StackPanel>
+        <TextBlock Text="{Binding SelectedText}" Margin="0,0,0,12"/>
+        <TextBlock Text="Outcome" Style="{StaticResource Muted}"/>
+        <ComboBox ItemsSource="{Binding Statuses}" SelectedItem="{Binding EditStatus, Mode=TwoWay}"/>
+        <TextBlock Text="Evidence note (what was checked, where the evidence is held)" Style="{StaticResource Muted}"/>
+        <TextBox Text="{Binding EditNote, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="140" TextWrapping="Wrap"/>
+        <Button Content="Save evidence" Command="{Binding SaveCommand}" HorizontalAlignment="Left"/>
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>

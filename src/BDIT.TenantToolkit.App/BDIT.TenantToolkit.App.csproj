@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>BDIT.TenantToolkit.App</AssemblyName>
+    <RootNamespace>BDIT.TenantToolkit.App</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Description>BDIT Microsoft 365 Tenant Toolkit desktop application.</Description>
+    <!-- Published as a self-contained win-x64 folder by build/Build-Portable.ps1; trimming and single-file are not used because WPF does not support them safely. -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishSingleFile>false</PublishSingleFile>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <StartupObject>BDIT.TenantToolkit.App.App</StartupObject>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BDIT.TenantToolkit.Core\BDIT.TenantToolkit.Core.csproj" />
+    <ProjectReference Include="..\BDIT.TenantToolkit.Graph\BDIT.TenantToolkit.Graph.csproj" />
+    <ProjectReference Include="..\BDIT.TenantToolkit.Engine\BDIT.TenantToolkit.Engine.csproj" />
+  </ItemGroup>
+</Project>

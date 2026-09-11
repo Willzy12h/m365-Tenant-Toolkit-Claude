@@ -1,0 +1,126 @@
+<UserControl x:Class="BDIT.TenantToolkit.App.Views.ConnectView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <Grid Margin="24">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="5*"/>
+        <ColumnDefinition Width="6*"/>
+      </Grid.ColumnDefinitions>
+
+      <StackPanel Grid.Column="0" Margin="0,0,20,0">
+        <TextBlock Text="Connect" Style="{StaticResource H1}"/>
+        <TextBlock Style="{StaticResource Lead}" Text="Save a client once, then sign in read-only. Credentials and MFA stay with Microsoft in your browser. Nothing is written in an assessment session."/>
+
+        <TextBlock Text="Saved clients" Style="{StaticResource H2}"/>
+        <ListBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding Selected, Mode=TwoWay}" MaxHeight="180" BorderBrush="{StaticResource Line}">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <StackPanel Margin="4">
+                <TextBlock Text="{Binding Company}" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding TenantId}" Style="{StaticResource Mono}"/>
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <TextBlock Text="{Binding SelectionText}" Style="{StaticResource Muted}" Margin="0,6,0,0"/>
+        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+          <Button Content="New client" Command="{Binding NewProfileCommand}" Style="{StaticResource SecondaryButton}"/>
+          <Button Content="Connect to selected client (read-only)" Command="{Binding ConnectSelectedCommand}"/>
+          <Button Content="Remove selected client from this computer" Command="{Binding DeleteProfileCommand}" Style="{StaticResource SecondaryButton}"/>
+        </StackPanel>
+
+        <TextBlock Text="Client details" Style="{StaticResource H2}"/>
+        <Border Style="{StaticResource Panel}">
+          <StackPanel>
+            <TextBlock Text="Company / client label *" Style="{StaticResource Muted}"/>
+            <TextBox Text="{Binding EditCompany, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="Tenant ID (GUID) *" Style="{StaticResource Muted}"/>
+            <TextBox Text="{Binding EditTenantId, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
+            <TextBlock Text="Primary domain (label only)" Style="{StaticResource Muted}"/>
+            <TextBox Text="{Binding EditDomain, UpdateSourceTrigger=PropertyChanged}"/>
+            <Expander Header="Tenant-specific application registrations (optional)" Margin="0,4,0,10">
+              <StackPanel Margin="0,8,0,0">
+                <TextBlock Style="{StaticResource Muted}" Text="Leave empty to use the toolkit-wide applications from config/toolkit.settings.json. The assessment and deployment registrations must be different so read-only tokens can never carry write permissions."/>
+                <TextBlock Text="Assessment application (client) ID" Style="{StaticResource Muted}" Margin="0,8,0,0"/>
+                <TextBox Text="{Binding EditAssessmentClientId, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
+                <TextBlock Text="Deployment application (client) ID" Style="{StaticResource Muted}"/>
+                <TextBox Text="{Binding EditDeploymentClientId, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
+              </StackPanel>
+            </Expander>
+            <Expander Header="Policy parameters (required before Conditional Access candidates can be planned)" Margin="0,0,0,10">
+              <StackPanel Margin="0,8,0,0">
+                <TextBlock Text="Emergency access account object IDs (comma separated) *" Style="{StaticResource Muted}"/>
+                <TextBox Text="{Binding EditEmergencyIds, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
+                <TextBlock Text="Office named location object ID" Style="{StaticResource Muted}"/>
+                <TextBox Text="{Binding EditOfficeLocationId, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
+                <TextBlock Text="Approved MAM-only group object ID" Style="{StaticResource Muted}"/>
+                <TextBox Text="{Binding EditMamGroupId, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
+                <TextBlock Text="Pilot group object ID" Style="{StaticResource Muted}"/>
+                <TextBox Text="{Binding EditPilotGroupId, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
+                <TextBlock Text="Conditional Access exclusion group object ID" Style="{StaticResource Muted}"/>
+                <TextBox Text="{Binding EditCaExclusionGroupId, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
+              </StackPanel>
+            </Expander>
+            <TextBlock Text="Notes" Style="{StaticResource Muted}"/>
+            <TextBox Text="{Binding EditNotes, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" Height="60" TextWrapping="Wrap"/>
+            <StackPanel Orientation="Horizontal">
+              <Button Content="Save client" Command="{Binding SaveProfileCommand}" Style="{StaticResource SecondaryButton}"/>
+              <Button Content="Save and connect (read-only)" Command="{Binding ConnectAssessmentCommand}"/>
+            </StackPanel>
+            <TextBox Text="{Binding ApplicationText, Mode=OneWay}" IsReadOnly="True" BorderThickness="0" Background="Transparent"
+                     FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"/>
+            <Button Content="Copy application details" Command="{Binding CopyApplicationCommand}" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Padding="8,4"/>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <StackPanel Grid.Column="1">
+        <TextBlock Text="Current connection" Style="{StaticResource H2}" Margin="0,44,0,6"/>
+        <Border Style="{StaticResource Panel}">
+          <StackPanel>
+            <TextBlock Text="{Binding ConnectionText}"/>
+            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+              <Button Content="Check access (read-only)" Command="{Binding CheckAccessCommand}" Style="{StaticResource SecondaryButton}"/>
+              <Button Content="Enable deployment access" Command="{Binding ConnectDeploymentCommand}" Style="{StaticResource DangerButton}"/>
+            </StackPanel>
+            <TextBlock Style="{StaticResource Muted}" Text="Deployment access signs in with the separate deployment application and requests write scopes. Writes still require a reviewed plan, an acknowledged before-change capture and the tenant ID typed in full."/>
+          </StackPanel>
+        </Border>
+
+        <TextBlock Text="Access check results" Style="{StaticResource H2}"/>
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+          <TextBox Text="{Binding AccessSummary, Mode=OneWay}" IsReadOnly="True" BorderThickness="0" Background="Transparent" TextWrapping="Wrap" MaxWidth="820"/>
+          <Button Content="Copy access check" Command="{Binding CopyAccessCommand}" Style="{StaticResource SecondaryButton}" Margin="10,0,0,0" Padding="8,4"/>
+        </StackPanel>
+        <TextBlock Text="Observed directory roles (direct, active)" Style="{StaticResource Muted}"/>
+        <ItemsControl ItemsSource="{Binding AccessRoles}" Margin="0,2,0,10">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate><TextBlock Text="{Binding}" FontSize="12"/></DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <DataGrid ItemsSource="{Binding AccessReads}" MaxHeight="260" Margin="0,0,0,10">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Collection (read)" Binding="{Binding Label}" Width="200"/>
+            <DataGridTextColumn Header="Scope" Binding="{Binding Scope}" Width="220"/>
+            <DataGridTextColumn Header="Result" Binding="{Binding Status}" Width="70"/>
+            <DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="*"/>
+          </DataGrid.Columns>
+        </DataGrid>
+        <DataGrid ItemsSource="{Binding AccessWrites}" MaxHeight="180" Margin="0,0,0,10">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Collection (write capability)" Binding="{Binding Label}" Width="200"/>
+            <DataGridTextColumn Header="Scope" Binding="{Binding Scope}" Width="220"/>
+            <DataGridTextColumn Header="Result" Binding="{Binding Status}" Width="110"/>
+            <DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="*"/>
+          </DataGrid.Columns>
+        </DataGrid>
+        <ItemsControl ItemsSource="{Binding AccessNotes}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate><TextBlock Text="{Binding}" Style="{StaticResource Muted}" Margin="0,0,0,4"/></DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Grid>
+  </ScrollViewer>
+</UserControl>

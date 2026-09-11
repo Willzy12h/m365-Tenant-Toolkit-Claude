@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>BDIT.TenantToolkit.Engine</AssemblyName>
+    <RootNamespace>BDIT.TenantToolkit.Engine</RootNamespace>
+    <Description>Standards loading, collection, assessment, deviations, drift, planning, guarded execution, evidence and reports.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BDIT.TenantToolkit.Core\BDIT.TenantToolkit.Core.csproj" />
+    <ProjectReference Include="..\BDIT.TenantToolkit.Graph\BDIT.TenantToolkit.Graph.csproj" />
+  </ItemGroup>
+</Project>
