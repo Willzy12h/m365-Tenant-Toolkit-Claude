@@ -112,8 +112,43 @@ public class EvidenceAndReportTests
         Assert.Contains("| `conditions.users.excludeUsers`", md, StringComparison.Ordinal);
 
         var sheets = TabularReports.AssessmentSheets(result);
-        Assert.Equal(6, sheets.Count);
+        // The recovered exporter includes equivalence evidence and caveats; retain both alongside the original tables.
+        Assert.Equal(new[] { "Summary", "Findings", "Differences", "Equivalent configuration", "Equivalence caveats", "Collection status", "Deviations", "Limitations" },
+            sheets.Select(s => s.Name));
         Assert.Contains(sheets[1].Rows.Skip(1), r => r[0] == "CA-001" && r[4].Contains("not enforced", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Tabular_reports_preserve_unmet_equivalence_signals_and_caveats()
+    {
+        var result = new AssessmentResult
+        {
+            Findings = new List<ControlFinding>
+            {
+                new()
+                {
+                    ControlId = "CA-001",
+                    Equivalence = new List<EquivalenceObservation>
+                    {
+                        new()
+                        {
+                            Name = "Existing MFA policy", ObjectId = "synthetic-policy", Collection = "conditionalAccess",
+                            Covered = false, Enforcement = EnforcementState.Disabled,
+                            Signals = new List<SignalResult>
+                            {
+                                new() { Label = "All users", Required = true, Expected = "All", Observed = "Pilot group", Matched = false }
+                            },
+                            Caveats = new List<string> { "Disabled policy does not enforce protection." }
+                        }
+                    }
+                }
+            }
+        };
+        var sheets = TabularReports.AssessmentSheets(result);
+        var evidence = Assert.Single(sheets.Single(s => s.Name == "Equivalent configuration").Rows.Skip(1));
+        Assert.Equal(new[] { "CA-001", "Existing MFA policy", "synthetic-policy", "conditionalAccess", "Disabled", "No", "All users", "Required", "All", "Pilot group", "Not met" }, evidence);
+        var caveat = Assert.Single(sheets.Single(s => s.Name == "Equivalence caveats").Rows.Skip(1));
+        Assert.Equal(new[] { "CA-001", "Existing MFA policy", "Disabled policy does not enforce protection." }, caveat);
     }
 
     [Fact]
