@@ -23,6 +23,10 @@ build/last-build.log
 
 # Exported reports can contain client configuration and names
 reports/
+# ...but never the reporting source. On a case-insensitive filesystem the rule above also matches
+# src/BDIT.TenantToolkit.Engine/Reports, which is how those six files were lost from this repository.
+!src/**/Reports/
+!src/**/Reports/*.cs
 *.csv.zip
 
 # Never commit a local settings file carrying real client IDs; the repository copy stays a template

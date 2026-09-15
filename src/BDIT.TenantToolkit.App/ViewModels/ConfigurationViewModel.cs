@@ -47,7 +47,7 @@ public sealed class ConfigurationViewModel : PageViewModel
         ExportCsvCommand = Sync(() => Export(ExportFormat.Csv), () => Workspace.Snapshot is not null);
         ExportXlsxCommand = Sync(() => Export(ExportFormat.Xlsx), () => Workspace.Snapshot is not null);
         OpenExportCommand = Sync(() => Infrastructure.ShellFolders.RevealFile(_lastExportFile), () => _lastExportFile.Length > 0);
-        CopySummaryCommand = CopyText(() => Summary);
+        CopySummaryCommand = CopyText(() => SnapshotText);
         Refresh();
     }
 

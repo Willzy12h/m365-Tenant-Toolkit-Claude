@@ -72,7 +72,13 @@ The most useful things to work on are listed in `docs/LIVE-VALIDATION.md` and in
 
 ## Working alongside other agents
 
-- One change per branch, named `feat/…`, `fix/…` or `docs/…`. Open a pull request; do not push to `main`.
-- Before starting, read open pull requests. If one already touches the files you need, say so rather than producing a conflicting change.
+Two agents work this product: Claude and Astra/Codex. The full protocol — pre-flight check, claiming work, branch ownership, merge order, conflict resolution — is `docs/integration/AGENT-COORDINATION.md` in `Willzy12h/M365-Buildstandards`. Read it before starting. What follows is what applies specifically here.
+
+**This repository is Claude's preserved source.** Claude maintains it. Astra/Codex reads it — that is encouraged, it is half the point of keeping both sources — but does not rewrite it to match its own implementation. A change wanted here is raised as an issue or in the integration pull request, and its owner makes it.
+
+- One change per branch, named `feat/…`, `fix/…` or `docs/…`. Open a pull request; do not push to `main`. An agent that is not this repository's owner branches under its own prefix (`astra/…`) and never pushes to a branch it does not own.
+- Before starting, `git fetch` and read open pull requests here and in the integration repository. If one already touches the files you need, say so rather than producing a conflicting change.
+- Open the pull request as a draft on your first commit. It is how the other agent learns you are here; nothing else tells it.
 - State plainly in the PR what you verified and what you did not. "Tests pass" means you ran them and saw them pass.
-- If you disagree with a decision recorded in `docs/REVIEW-REPORT.md`, raise it as an issue. Do not quietly reverse it.
+- If you disagree with a decision recorded in `docs/REVIEW-REPORT.md`, raise it as an issue. Do not quietly reverse it. The same applies to `docs/integration/DECISION-LOG.md` in the integration repository.
+- Review the other agent's pull requests and say what you think is wrong. Do not approve or merge them; a human does that.
